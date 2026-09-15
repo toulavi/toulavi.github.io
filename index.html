@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>home</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@100..900&amp;display=swap">
+   <link rel="icon" href="midcutout.png" sizes="32x32" type="image/x-icon">
+
+    <style>
+
+      * { box-sizing: border-box; }
+
+      body {
+        font-family: 'Roboto Slab', serif;
+        background-color: white;
+        margin: 0;
+        padding: 0;
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: stretch;
+      }
+
+      .container {
+        width: 80%;
+        max-width: 1200px;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      @media (max-width: 600px) {
+        .container { width: 100%; }
+      }
+
+      /* 上半分: toulavi + m e + ナビ */
+      .top-section {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding-top: 0;
+        margin-top: -10px;
+      }
+
+      /* 画像: ちょうど中央 */
+      .image-section {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      /* 下半分: midori を中央に */
+      .bottom-section {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .distorted-text { transform: scaleX(1.2) scaleY(0.8); }
+      .blurry-text    { filter: blur(1px); }
+
+      h1 {
+        padding-left: 16px;
+        letter-spacing: 15px;
+        color: black;
+        font-size: 30px;
+        line-height: 1.6;
+        font-weight: 300;
+        margin: 0;
+        text-align: center;
+      }
+
+      h2 {
+        padding: 0;
+        margin: 0;
+        letter-spacing: 2px;
+        word-spacing: 20px;
+        color: gray;
+        text-decoration: underline;
+        cursor: pointer;
+        font-size: 15px;
+        line-height: 1.3;
+        font-weight: 300;
+      }
+      
+      h3 {
+        padding: 0;
+        margin: 0;
+        letter-spacing: 2px;
+        word-spacing: 20px;
+        color: gray;
+        font-size: 15px;
+        line-height: 1.3;
+        font-weight: 300;
+      }
+
+      .midori-link {
+        display: inline-block;
+        padding: 0;
+        letter-spacing: 2px;
+        word-spacing: 15px;
+        color: gray;
+        text-decoration: underline;
+        cursor: pointer;
+        font-size: 15px;
+        line-height: 1.6;
+        font-weight: 300;
+      }
+
+      ul {
+        padding: 0;
+        letter-spacing: 1px;
+        word-spacing: 17px;
+        color: white;
+        font-size: 15px;
+        line-height: 1.6;
+        font-weight: 100;
+        margin: 0;
+        text-align: center;
+        list-style: none;
+      }
+
+      img { display: block; }
+      
+      .gray:hover { filter: grayscale(100%); }
+      .hanten:hover { filter: invert(100%); }
+
+      a:visited { color: gray; }
+      a:hover   { color: gray; text-decoration: underline; }
+
+      .parent-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .link-group2 {
+        display: flex;
+        gap: 20px;
+        justify-content: center;
+        align-items: center;
+      }
+      
+         .post-meta {
+      font-size: 0.8rem;
+      color: #888;
+      margin-bottom: 16px;
+      transform: scaleY(0.9);
+  transform-origin: top;
+    }
+
+      .modal {
+        display: none;
+        position: fixed;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        background: rgba(0, 0, 0, 0.20);
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+      }
+
+      .modal.active { display: flex; }
+
+      .modal-content {
+        background: white;
+        font-size: 12px;
+        padding: 30px;
+        border-radius: 0;
+        text-align: center;
+        max-width: 300px;
+        width: 80%;
+        margin: auto;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .modal-content.release {
+        width: 33vw;
+        max-width: none;
+        padding: 2vw;
+        gap: 1vw;
+      }
+
+      .modal-content.release h2 {
+        font-size: 1.2vw;
+        letter-spacing: 0.3vw;
+        word-spacing: 1vw;
+      }
+
+      .modal-content.release a {
+        font-size: 1vw;
+        letter-spacing: 0.2vw;
+        word-spacing: 0.5vw;
+      }
+
+      .modal-content.release img {
+        width: 20vw;
+        height: 20vw;
+      }
+
+      @media (max-width: 600px) {
+        .modal-content.release {
+          width: 80vw;
+          padding: 5vw;
+          gap: 3vw;
+        }
+        .modal-content.release h2 {
+          font-size: 3.5vw;
+          letter-spacing: 0.5vw;
+          word-spacing: 2vw;
+        }
+        .modal-content.release a {
+          font-size: 3vw;
+          letter-spacing: 0.3vw;
+          word-spacing: 1vw;
+        }
+        .modal-content.release img {
+          width: 50vw;
+          height: 50vw;
+        }
+      }
+
+    </style>
+  </head>
+
+  <body>
+    <div class="container">
+
+      <!-- 上半分 -->
+      <div class="top-section">
+        <h1 class="distorted-text" style="filter: blur(1.5px);">toulavi</h1>
+        <ul class="blurry-text distorted-text">m e</ul>
+        <div class="parent-container">
+          <h2 class="distorted-text" onclick="openModal('modal1')">sns</h2>
+          <h2 class="distorted-text" onclick="window.open('https://goodnewsweb.studio.site', '_blank')">gnws</h2>
+          <h2 class="distorted-text" onclick="openModal('modal2')">etc.</h2>
+        </div>
+      </div>
+
+      <!-- 画像: 画面中央 -->
+      <div class="image-section">
+        <a href="https://dl.dropboxusercontent.com/scl/fi/h7ulcupg9zg56sy5sjlv2/ordinary_amb.wav?rlkey=3ttgxqiiw1bdq4g7jppd81l2w&amp;st=cri006bj&amp;dl=0"
+           target="_blank" rel="noopener noreferrer">
+          <img src="camera_camera.png" class="blurry-text" width="200" height="200" alt="">
+        </a>
+      </div>
+
+      <!-- 下半分: midori -->
+      <div class="bottom-section">
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+          <span class="midori-link distorted-text"
+                onclick="openModal('modal0')">new</span>
+                 <!-- ここにfune入れる -->
+                <span class="midori-link distorted-text"
+                onclick="location.href='https://toulavi.neocities.org/'">_</span>
+          <span class="midori-link distorted-text"
+                onclick="location.href='https://toulavi.neocities.org/page2'">midori</span>
+        </div>
+      </div>
+
+    <!-- モーダル 0: new release -->
+    <div id="modal0" class="modal">
+      <div class="modal-content release">
+      <img src="midcutout.png" width="100" height="100" alt="kuromaru" style="top: 50% left: 50%;">
+      <ul class="distorted-text" style="padding-top: 10px; text-decoration: font-size: 10px; letter-spacing: 10px; word-spacing: 0px; font-weight: 300; color: gray; margin-left: 12px;">n e w</ul>
+        <a href="https://ultravybe.lnk.to/sakasa-no-hito" target="_blank" rel="noopener noreferrer">
+          <img class="gray" src="sakasajacket.jpg" width="200" height="200" alt="Hyakunen No Kodoku EP" style="display:block; margin: 8px auto; cursor: pointer; ">
+        </a>
+        <h2 class="post-meta" href="https://linkco.re/qRGa7Zy5" target="_blank" rel="noopener noreferrer" style="word-spacing: 0px; font-size: 11px; underline; cursor: pointer; ">船
+        <br>「sakasa no hito」</h2>
+        <!-- ここにもfune入れる -->
+        <h2 class="post-meta" onclick="location.href='https://toulavi.neocities.org/'" style="word-spacing: 0px; font-size: 11px; underline; cursor: pointer; ">interview</h2>
+      </div>
+    </div>
+
+    <!-- モーダル 1: SNS -->
+    <div id="modal1" class="modal">
+      <div class="modal-content">
+        <div class="link-group2">
+          <h2 class="distorted-text" onclick="window.open('https://toulavi.bandcamp.com/music', '_blank')">bc</h2>
+          <h2 class="distorted-text" onclick="window.open('https://soundcloud.com/user-274668871', '_blank')">sc</h2>
+          <h2 class="distorted-text" onclick="window.open('https://www.youtube.com/@toulavi3133', '_blank')">yt</h2>
+        </div>
+        <div class="link-group2">
+          <h2 class="distorted-text" onclick="window.open('https://x.com/toulavi', '_blank')">x</h2>
+          <h2 class="distorted-text" onclick="window.open('https://www.instagram.com/toulavi_5pm/', '_blank')">ig</h2>
+        </div>
+      </div>
+    </div>
+
+    <!-- モーダル 2: etc. -->
+    <div id="modal2" class="modal">
+      <div class="modal-content">
+        <div class="link-group2">
+          <h2 class="distorted-text" onclick="location.href='https://toulavi.neocities.org/cv'">cv</h2>
+          <h2 class="distorted-text" onclick="location.href='https://toulavi.neocities.org/bun'">bun</h2>
+          <h2 class="distorted-text" onclick="location.href='https://toulavi.neocities.org/lyrics'">lyrics</h2>
+        </div>
+      </div>
+    </div></div>
+    
+
+    <script>
+      function openModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+          modal.style.display = "flex";
+          modal.classList.add("active");
+        }
+      }
+
+      const modals = document.querySelectorAll(".modal");
+
+      function handleOutsideClick(event) {
+        modals.forEach(modal => {
+          if (event.target === modal) {
+            modal.style.display = "none";
+            modal.classList.remove("active");
+          }
+        });
+      }
+
+      window.addEventListener("click", handleOutsideClick);
+      window.addEventListener("touchend", handleOutsideClick);
+
+
+
+    </script>
+  </body>
+</html>
