@@ -176,6 +176,11 @@
     </div>
 
     <div class="row">
+      <div class="row-head"><label>劣化(間引き/ビットクラッシュ)</label><span class="val" id="valCrush">30%</span></div>
+      <input type="range" id="crush" min="0" max="100" value="30">
+    </div>
+
+    <div class="row">
       <div class="row-head"><label>誤作動の伝播</label><span class="val" id="valBleed">35%</span></div>
       <input type="range" id="bleed" min="0" max="100" value="35">
     </div>
@@ -197,6 +202,8 @@
 
     <div class="btnrow">
       <button id="btnRandom">ランダム(即反映)</button>
+      <button id="btnFullGlitch">フルグリッチ(密度/不安定=100%)</button>
+      <button id="btnResetParams">標準に戻す</button>
     </div>
   </section>
 
@@ -245,14 +252,19 @@
   const winMaxEl=document.getElementById('winMax');
   const zoneMinEl=document.getElementById('zoneMin');
   const zoneMaxEl=document.getElementById('zoneMax');
+  [winMinEl,winMaxEl,zoneMinEl,zoneMaxEl].forEach(el=>{
+    el.addEventListener('wheel', e=>{ if(document.activeElement===el) e.preventDefault(); }, {passive:false});
+  });
   const densityEl=document.getElementById('density');
   const instabilityEl=document.getElementById('instability');
+  const crushEl=document.getElementById('crush');
   const bleedEl=document.getElementById('bleed');
   const soberEl=document.getElementById('sober');
   const stereoEl=document.getElementById('stereo');
   const xfadeEl=document.getElementById('xfade');
   const valDensity=document.getElementById('valDensity');
   const valInstability=document.getElementById('valInstability');
+  const valCrush=document.getElementById('valCrush');
   const valBleed=document.getElementById('valBleed');
   const valSober=document.getElementById('valSober');
   const valStereo=document.getElementById('valStereo');
@@ -274,7 +286,6 @@
   let mediaRecorder=null;
   let recChunks=[];
   let recDest=null;
-  let fixedCrush=20+Math.random()*10;
 
   // ---------------- 波形描画・アンカー ----------------
   function drawWave(){
@@ -359,7 +370,7 @@
       zoneMaxMs: Math.max(5, parseFloat(zoneMaxEl.value)||1500),
       density: parseFloat(densityEl.value),
       instability: parseFloat(instabilityEl.value),
-      crush: fixedCrush,
+      crush: parseFloat(crushEl.value),
       bleed: parseFloat(bleedEl.value),
       sober: parseFloat(soberEl.value),
       stereo: parseFloat(stereoEl.value),
@@ -374,12 +385,13 @@
   function syncLabels(){
     valDensity.textContent=densityEl.value+'%';
     valInstability.textContent=instabilityEl.value+'%';
+    valCrush.textContent=crushEl.value+'%';
     valBleed.textContent=bleedEl.value+'%';
     valSober.textContent=soberEl.value+'%';
     valStereo.textContent=stereoEl.value+'%';
     valXfade.textContent=xfadeEl.value+' ms';
   }
-  const allParamEls=[winMinEl,winMaxEl,zoneMinEl,zoneMaxEl,densityEl,instabilityEl,bleedEl,soberEl,stereoEl,xfadeEl];
+  const allParamEls=[winMinEl,winMaxEl,zoneMinEl,zoneMaxEl,densityEl,instabilityEl,crushEl,bleedEl,soberEl,stereoEl,xfadeEl];
   allParamEls.forEach(el=>el.addEventListener('input',()=>{
     syncLabels();
     pushParamsToWorklet();
@@ -405,6 +417,7 @@
     zoneMaxEl.value=Math.round(zoneMax);
     densityEl.value=Math.round(10+Math.random()*80);
     instabilityEl.value=Math.round(Math.random()*100);
+    crushEl.value=Math.round(Math.random()*80);
     bleedEl.value=Math.round(Math.random()*90);
     soberEl.value=Math.round(Math.random()*40);
     stereoEl.value=Math.round(Math.random()*80);
@@ -413,6 +426,24 @@
     pushParamsToWorklet();
   }
   btnRandom.addEventListener('click',randomizeParams);
+
+  const btnFullGlitch=document.getElementById('btnFullGlitch');
+  const btnResetParams=document.getElementById('btnResetParams');
+  btnFullGlitch.addEventListener('click',()=>{
+    densityEl.value=100;
+    instabilityEl.value=100;
+    syncLabels();
+    pushParamsToWorklet();
+  });
+  btnResetParams.addEventListener('click',()=>{
+    winMinEl.value=8; winMaxEl.value=60;
+    zoneMinEl.value=150; zoneMaxEl.value=1500;
+    densityEl.value=45; instabilityEl.value=40;
+    crushEl.value=30; bleedEl.value=35;
+    soberEl.value=15; stereoEl.value=30; xfadeEl.value=3;
+    syncLabels();
+    pushParamsToWorklet();
+  });
 
   // ---------------- AudioWorkletプロセッサ本体(文字列としてBlobに詰める) ----------------
 
@@ -672,7 +703,6 @@ registerProcessor('malfunction-processor', MalfunctionProcessor);
 
       audioBuffer=buf;
       anchors=[];
-      fixedCrush=20+Math.random()*10;
       const kb=(file.size/1024).toFixed(1);
       fileMeta.style.display='block';
       fileMeta.textContent=`${file.name}  —  ${kb} KB  —  ${buf.duration.toFixed(2)}秒 / ${buf.sampleRate}Hz / ${buf.numberOfChannels}ch`;
