@@ -38,6 +38,10 @@
   .seqbar button{padding:9px 14px}
   .tempo{display:flex;align-items:center;gap:8px;font-size:12px;color:#aaa}
   .tempo input{width:130px}
+  .voice-lens{margin-top:8px;display:grid;gap:8px}
+  .voice-lens>div{display:grid;grid-template-columns:75px 1fr 58px;gap:8px;align-items:center}
+  .voice-lens span,.voice-lens b{font-size:11px;color:#999}
+  .voice-lens b{font-weight:400;text-align:right}
   @media(max-width:700px){.seq{grid-template-columns:70px repeat(16,32px)}}
 </style>
 </head>
@@ -68,8 +72,13 @@
       <input id="decomp" type="range" min="0" max="100" value="55">
     </div>
     <div>
-      <label>断片の長さ <span id="lenVal">180ms</span></label>
-      <input id="len" type="range" min="50" max="500" value="180">
+      <label>断片の長さ（個別設定）</label>
+      <div class="voice-lens">
+        <div><span>KICK</span><input class="voice-len" data-kind="low" type="range" min="30" max="600" value="180"><b data-len-val="low">180ms</b></div>
+        <div><span>SNARE</span><input class="voice-len" data-kind="attack" type="range" min="30" max="600" value="180"><b data-len-val="attack">180ms</b></div>
+        <div><span>HAT</span><input class="voice-len" data-kind="high" type="range" min="20" max="400" value="100"><b data-len-val="high">100ms</b></div>
+        <div><span>TOM/FX</span><input class="voice-len" data-kind="long" type="range" min="30" max="1000" value="300"><b data-len-val="long">300ms</b></div>
+      </div>
     </div>
   </div>
 
@@ -185,7 +194,8 @@ function playSlice(kind){
   if(!buffer)return;
   ensureCtx();
   const t=map[kind];
-  const dur=Math.min(Number(len.value)/1000,buffer.duration-t);
+  const slider=document.querySelector(`.voice-len[data-kind="${kind}"]`);
+  const dur=Math.min(Number(slider.value)/1000,buffer.duration-t);
   const src=ctx.createBufferSource();
   const gain=ctx.createGain();
   src.buffer=buffer;
@@ -202,7 +212,7 @@ document.querySelectorAll('.pads button').forEach(b=>{
   b.onclick=()=>{ b.classList.add('active'); setTimeout(()=>b.classList.remove('active'),80); playSlice(b.dataset.kind); };
 });
 decomp.oninput=()=>{document.getElementById('decompVal').textContent=decomp.value+'%'; redistribute()};
-len.oninput=()=>document.getElementById('lenVal').textContent=len.value+'ms';
+document.querySelectorAll('.voice-len').forEach(slider=>{ slider.oninput=()=>{ document.querySelector(`[data-len-val="${slider.dataset.kind}"]`).textContent=slider.value+'ms'; }; });
 document.getElementById('random').onclick=redistribute;
 document.getElementById('start').onclick=()=>{
   if(!buffer)return; ensureCtx();
