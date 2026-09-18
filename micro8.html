@@ -95,6 +95,9 @@
   a.dl:hover{color:#93ffb2;}
 
   footer{margin-top:28px;font-size:10.5px;color:var(--ink-dim);line-height:1.7;}
+  input[type=number]::-webkit-outer-spin-button,
+  input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+  input[type=number]{-moz-appearance:textfield;}
 </style>
 </head>
 <body>
@@ -201,8 +204,8 @@
     </div>
 
     <div class="row">
-      <div class="row-head"><label>暴れ強度</label><span class="val" id="valChaosAmt">0%</span></div>
-      <input type="range" id="chaosAmt" min="0" max="100" value="0">
+      <div class="row-head"><label>暴れの持続時間</label></div>
+      <input type="number" id="chaosHoldSec" value="4" min="0.5" max="60" step="0.5"><span>秒</span>
     </div>
 
     <div class="row">
@@ -274,11 +277,10 @@
   const soberEl=document.getElementById('sober');
   const stereoEl=document.getElementById('stereo');
   const xfadeEl=document.getElementById('xfade');
-  const chaosAmtEl=document.getElementById('chaosAmt');
+  const chaosHoldSecEl=document.getElementById('chaosHoldSec');
   const btnChaosSpace=document.getElementById('btnChaosSpace');
   const btnChaosPitch=document.getElementById('btnChaosPitch');
   const btnChaosMisread=document.getElementById('btnChaosMisread');
-  const valChaosAmt=document.getElementById('valChaosAmt');
   const valDensity=document.getElementById('valDensity');
   const valInstability=document.getElementById('valInstability');
   const valCrush=document.getElementById('valCrush');
@@ -392,7 +394,6 @@
       sober: parseFloat(soberEl.value),
       stereo: parseFloat(stereoEl.value),
       xfadeMs: parseFloat(xfadeEl.value),
-      chaosAmt: parseFloat(chaosAmtEl.value),
       chaosSpace: chaosActive.space?1:0,
       chaosPitch: chaosActive.pitch?1:0,
       chaosMisread: chaosActive.misread?1:0
@@ -411,14 +412,12 @@
     valSober.textContent=soberEl.value+'%';
     valStereo.textContent=stereoEl.value+'%';
     valXfade.textContent=xfadeEl.value+' ms';
-    valChaosAmt.textContent=chaosAmtEl.value+'%';
   }
-  const allParamEls=[winMinEl,winMaxEl,zoneMinEl,zoneMaxEl,densityEl,instabilityEl,crushEl,bleedEl,soberEl,stereoEl,xfadeEl,chaosAmtEl];
+  const allParamEls=[winMinEl,winMaxEl,zoneMinEl,zoneMaxEl,densityEl,instabilityEl,crushEl,bleedEl,soberEl,stereoEl,xfadeEl];
   allParamEls.forEach(el=>el.addEventListener('input',()=>{
     syncLabels();
     pushParamsToWorklet();
   }));
-  const CHAOS_HOLD_MS=4000;
   const chaosActive={space:false, pitch:false, misread:false};
   const chaosTimers={space:null, pitch:null, misread:null};
   function armChaosButton(btn, key){
@@ -427,11 +426,12 @@
       btn.classList.add('primary');
       pushParamsToWorklet();
       clearTimeout(chaosTimers[key]);
+      const holdMs=Math.max(100, (parseFloat(chaosHoldSecEl.value)||4)*1000);
       chaosTimers[key]=setTimeout(()=>{
         chaosActive[key]=false;
         btn.classList.remove('primary');
         pushParamsToWorklet();
-      }, CHAOS_HOLD_MS);
+      }, holdMs);
     });
   }
   armChaosButton(btnChaosSpace,'space');
@@ -482,7 +482,7 @@
     densityEl.value=100; instabilityEl.value=100;
     crushEl.value=30; bleedEl.value=100;
     soberEl.value=15; stereoEl.value=30; xfadeEl.value=3;
-    chaosAmtEl.value=0;
+    chaosHoldSecEl.value=4;
     ['space','pitch','misread'].forEach(k=>{
       chaosActive[k]=false;
       clearTimeout(chaosTimers[k]);
@@ -505,7 +505,7 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
     this.loaded=false;
     this.sr=sampleRate;
     this.anchors=[];
-    this.params={winMinMs:8,winMaxMs:60,zoneMinMs:150,zoneMaxMs:1500,density:100,instability:100,crush:30,bleed:100,sober:15,stereo:30,xfadeMs:3,chaosAmt:0,chaosSpace:0,chaosPitch:0,chaosMisread:0};
+    this.params={winMinMs:8,winMaxMs:60,zoneMinMs:150,zoneMaxMs:1500,density:100,instability:100,crush:30,bleed:100,sober:15,stereo:30,xfadeMs:3,chaosSpace:0,chaosPitch:0,chaosMisread:0};
     this.readCursor=0;
     this.seg=null;
     this.chanState=[{filterY:0,crushHeld:0,crushCounter:0},{filterY:0,crushHeld:0,crushCounter:0}];
@@ -570,7 +570,7 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
           : (1.1+amt*6+Math.random()*0.4);
       }
       if(p.chaosSpace){
-        const cAmt=p.chaosAmt/100;
+        const cAmt=1;
         if(Math.random()<cAmt*0.6){
           this.seg.stereoMode='wide';
           this.seg.stereoFactor=1.1+cAmt*30+Math.random()*5;
@@ -643,7 +643,7 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
         seg.tilePos=0;
         seg.reverseThis=Math.random()<jitter*0.3;
         if(this.params.chaosPitch){
-          const cAmt=this.params.chaosAmt/100;
+          const cAmt=1;
           if(Math.random()<0.3+cAmt*0.6){
             const maxSemi=2+cAmt*46;
             const semis=(Math.random()*2-1)*maxSemi;
@@ -655,7 +655,7 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
           seg.pitchMult=1;
         }
         if(this.params.chaosMisread){
-          const cAmt=this.params.chaosAmt/100;
+          const cAmt=1;
           seg.misreadShift = Math.random()<0.25+cAmt*0.5 ? 1+Math.floor(Math.random()*3) : 0;
         } else {
           seg.misreadShift=0;
