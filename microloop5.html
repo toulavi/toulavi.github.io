@@ -166,13 +166,13 @@
     </div>
 
     <div class="row">
-      <div class="row-head"><label>反復ゾーンになる確率</label><span class="val" id="valDensity">45%</span></div>
-      <input type="range" id="density" min="0" max="100" value="45">
+      <div class="row-head"><label>反復ゾーンになる確率</label><span class="val" id="valDensity">100%</span></div>
+      <input type="range" id="density" min="0" max="100" value="100">
     </div>
 
     <div class="row">
-      <div class="row-head"><label>不安定さ(誤作動っぽさ)</label><span class="val" id="valInstability">40%</span></div>
-      <input type="range" id="instability" min="0" max="100" value="40">
+      <div class="row-head"><label>不安定さ(誤作動っぽさ)</label><span class="val" id="valInstability">100%</span></div>
+      <input type="range" id="instability" min="0" max="100" value="100">
     </div>
 
     <div class="row">
@@ -181,8 +181,8 @@
     </div>
 
     <div class="row">
-      <div class="row-head"><label>誤作動の伝播</label><span class="val" id="valBleed">35%</span></div>
-      <input type="range" id="bleed" min="0" max="100" value="35">
+      <div class="row-head"><label>誤作動の伝播</label><span class="val" id="valBleed">100%</span></div>
+      <input type="range" id="bleed" min="0" max="100" value="100">
     </div>
 
     <div class="row">
@@ -198,6 +198,18 @@
     <div class="row">
       <div class="row-head"><label>継ぎ目のクロスフェード</label><span class="val" id="valXfade">3 ms</span></div>
       <input type="range" id="xfade" min="0" max="150" value="3">
+    </div>
+
+    <div class="row">
+      <div class="row-head"><label>暴れ強度</label><span class="val" id="valChaosAmt">0%</span></div>
+      <input type="range" id="chaosAmt" min="0" max="100" value="0">
+    </div>
+
+    <div class="row">
+      <div class="row-head"><label>暴れの系統</label></div>
+      <label style="margin-right:16px;"><input type="checkbox" id="chaosSpace"> 空間系(位相反転/L-R入替/極端な幅)</label>
+      <label style="margin-right:16px;"><input type="checkbox" id="chaosFeedback"> フィードバック暴走系(伝播が育って弾ける)</label>
+      <label><input type="checkbox" id="chaosPitch"> ピッチ暴走系(再生速度が突然ジャンプ)</label>
     </div>
 
     <div class="btnrow">
@@ -262,6 +274,11 @@
   const soberEl=document.getElementById('sober');
   const stereoEl=document.getElementById('stereo');
   const xfadeEl=document.getElementById('xfade');
+  const chaosAmtEl=document.getElementById('chaosAmt');
+  const chaosSpaceEl=document.getElementById('chaosSpace');
+  const chaosFeedbackEl=document.getElementById('chaosFeedback');
+  const chaosPitchEl=document.getElementById('chaosPitch');
+  const valChaosAmt=document.getElementById('valChaosAmt');
   const valDensity=document.getElementById('valDensity');
   const valInstability=document.getElementById('valInstability');
   const valCrush=document.getElementById('valCrush');
@@ -374,7 +391,11 @@
       bleed: parseFloat(bleedEl.value),
       sober: parseFloat(soberEl.value),
       stereo: parseFloat(stereoEl.value),
-      xfadeMs: parseFloat(xfadeEl.value)
+      xfadeMs: parseFloat(xfadeEl.value),
+      chaosAmt: parseFloat(chaosAmtEl.value),
+      chaosSpace: chaosSpaceEl.checked?1:0,
+      chaosFeedback: chaosFeedbackEl.checked?1:0,
+      chaosPitch: chaosPitchEl.checked?1:0
     };
   }
 
@@ -390,10 +411,14 @@
     valSober.textContent=soberEl.value+'%';
     valStereo.textContent=stereoEl.value+'%';
     valXfade.textContent=xfadeEl.value+' ms';
+    valChaosAmt.textContent=chaosAmtEl.value+'%';
   }
-  const allParamEls=[winMinEl,winMaxEl,zoneMinEl,zoneMaxEl,densityEl,instabilityEl,crushEl,bleedEl,soberEl,stereoEl,xfadeEl];
+  const allParamEls=[winMinEl,winMaxEl,zoneMinEl,zoneMaxEl,densityEl,instabilityEl,crushEl,bleedEl,soberEl,stereoEl,xfadeEl,chaosAmtEl];
   allParamEls.forEach(el=>el.addEventListener('input',()=>{
     syncLabels();
+    pushParamsToWorklet();
+  }));
+  [chaosSpaceEl,chaosFeedbackEl,chaosPitchEl].forEach(el=>el.addEventListener('change',()=>{
     pushParamsToWorklet();
   }));
   syncLabels();
@@ -438,9 +463,10 @@
   btnResetParams.addEventListener('click',()=>{
     winMinEl.value=8; winMaxEl.value=60;
     zoneMinEl.value=150; zoneMaxEl.value=1500;
-    densityEl.value=45; instabilityEl.value=40;
-    crushEl.value=30; bleedEl.value=35;
+    densityEl.value=100; instabilityEl.value=100;
+    crushEl.value=30; bleedEl.value=100;
     soberEl.value=15; stereoEl.value=30; xfadeEl.value=3;
+    chaosAmtEl.value=0; chaosSpaceEl.checked=false; chaosFeedbackEl.checked=false; chaosPitchEl.checked=false;
     syncLabels();
     pushParamsToWorklet();
   });
@@ -456,7 +482,8 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
     this.loaded=false;
     this.sr=sampleRate;
     this.anchors=[];
-    this.params={winMinMs:8,winMaxMs:60,zoneMinMs:150,zoneMaxMs:1500,density:45,instability:40,crush:30,bleed:35,sober:15,stereo:30,xfadeMs:3};
+    this.params={winMinMs:8,winMaxMs:60,zoneMinMs:150,zoneMaxMs:1500,density:100,instability:100,crush:30,bleed:100,sober:15,stereo:30,xfadeMs:3,chaosAmt:0,chaosSpace:0,chaosFeedback:0,chaosPitch:0};
+    this.fbAccum=[0,0];
     this.readCursor=0;
     this.seg=null;
     this.chanState=[{filterY:0,crushHeld:0,crushCounter:0},{filterY:0,crushHeld:0,crushCounter:0}];
@@ -511,13 +538,22 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
       const anchor=this.pickAnchor();
       const jitter=p.instability/100;
       this.seg={type:'loop', remaining:zoneLen, total:zoneLen, anchor, winLen, baseWinLen:winLen, tilePos:0,
-        reverseThis: Math.random()<jitter*0.3, sober, stereoMode:null, stereoFactor:0};
+        reverseThis: Math.random()<jitter*0.3, sober, stereoMode:null, stereoFactor:0, pitchMult:1, hardInvert:false, hardSwap:false};
       if(Math.random()*100<p.stereo){
         const amt=p.stereo/100;
         this.seg.stereoMode = Math.random()<0.5?'narrow':'wide';
         this.seg.stereoFactor = this.seg.stereoMode==='narrow'
           ? Math.max(0.02, 0.42-0.4*amt+Math.random()*0.04)
           : (1.1+amt*6+Math.random()*0.4);
+      }
+      if(p.chaosSpace){
+        const cAmt=p.chaosAmt/100;
+        if(Math.random()<cAmt*0.6){
+          this.seg.stereoMode='wide';
+          this.seg.stereoFactor=1.1+cAmt*30+Math.random()*5;
+        }
+        this.seg.hardInvert = Math.random()<cAmt*0.4;
+        this.seg.hardSwap = Math.random()<cAmt*0.3;
       }
     } else {
       this.seg={type:'pass', remaining:zoneLen, total:zoneLen, sober};
@@ -583,11 +619,29 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
         seg.winLen=Math.max(lowerBound, Math.min(upperBound, nl));
         seg.tilePos=0;
         seg.reverseThis=Math.random()<jitter*0.3;
+        if(this.params.chaosPitch){
+          const cAmt=this.params.chaosAmt/100;
+          if(Math.random()<0.3+cAmt*0.6){
+            const maxSemi=2+cAmt*46;
+            const semis=(Math.random()*2-1)*maxSemi;
+            seg.pitchMult=Math.pow(2, semis/12);
+          } else {
+            seg.pitchMult=1;
+          }
+        } else {
+          seg.pitchMult=1;
+        }
       }
-      const within = seg.reverseThis ? (seg.winLen-1-seg.tilePos) : seg.tilePos;
-      out[0]=this.channels[0][(seg.anchor+within)%this.srcLength];
-      out[1]=this.channels[1][(seg.anchor+within)%this.srcLength];
-      seg.tilePos++;
+      const contPos = seg.reverseThis ? (seg.winLen-1-seg.tilePos) : seg.tilePos;
+      const winLenInt=Math.max(1, Math.round(seg.winLen));
+      const i0=Math.floor(contPos);
+      const frac=contPos-i0;
+      const i0m=((i0 % winLenInt)+winLenInt)%winLenInt;
+      const i1m=(i0m+1)%winLenInt;
+      const a0=(seg.anchor+i0m)%this.srcLength, a1=(seg.anchor+i1m)%this.srcLength;
+      out[0]=this.channels[0][a0]*(1-frac)+this.channels[0][a1]*frac;
+      out[1]=this.channels[1][a0]*(1-frac)+this.channels[1][a1]*frac;
+      seg.tilePos+=(seg.pitchMult||1);
 
       const jitter=this.params.instability/100;
       if(jitter>0){
@@ -624,6 +678,8 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
         out[0]=Math.max(-1,Math.min(1, mid+side));
         out[1]=Math.max(-1,Math.min(1, mid-side));
       }
+      if(seg.hardInvert) out[1]=-out[1];
+      if(seg.hardSwap){ const tmp=out[0]; out[0]=out[1]; out[1]=tmp; }
     }
 
     if(seg.blendRemaining>0 && this.hasHistory){
@@ -642,6 +698,16 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
       out[0]=Math.max(-1,Math.min(1, out[0]+this.pendingBleed.arrays[0][bi]*decay*mixGain));
       out[1]=Math.max(-1,Math.min(1, out[1]+this.pendingBleed.arrays[1][bi]*decay*mixGain));
       this.pendingBleed.idx++;
+    }
+
+    if(this.params.chaosFeedback){
+      const cAmt=this.params.chaosAmt/100;
+      const fbGain=1+cAmt*0.35;
+      for(let ci=0;ci<2;ci++){
+        this.fbAccum[ci]=this.fbAccum[ci]*fbGain*0.995+out[ci]*0.15*cAmt;
+        if(Math.abs(this.fbAccum[ci])>1.8) this.fbAccum[ci]=0;
+        out[ci]=Math.max(-1,Math.min(1, out[ci]+this.fbAccum[ci]*0.5));
+      }
     }
 
     this.pushHistory(0,out[0]);
