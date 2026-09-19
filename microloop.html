@@ -161,9 +161,37 @@
 
     <div class="row">
       <div class="row-head"><label>ゾーンの長さの範囲</label></div>
-      <div class="minmax">
+      <div style="margin-bottom:8px;">
+        <label style="margin-right:16px;"><input type="radio" name="zoneTimeMode" id="zoneModeMs" value="ms" checked> ミリ秒指定</label>
+        <label><input type="radio" name="zoneTimeMode" id="zoneModeBpm" value="bpm"> BPM指定</label>
+      </div>
+      <div class="minmax" id="zoneMsControls">
         <input type="number" id="zoneMin" value="150" min="10" step="10"><span>ms 〜</span>
         <input type="number" id="zoneMax" value="1500" min="10" step="10"><span>ms</span>
+      </div>
+      <div id="zoneBpmControls" style="display:none;">
+        <div class="minmax" style="margin-bottom:8px;">
+          <input type="number" id="bpmVal" value="120" min="20" max="300" step="1"><span>BPM　基準音符:</span>
+          <select id="noteLen" style="font-family:var(--mono);background:transparent;color:var(--ink);border:1px solid var(--line);padding:6px;">
+            <option value="4">1/1(全音符)</option>
+            <option value="2">1/2</option>
+            <option value="1" selected>1/4</option>
+            <option value="0.5">1/8</option>
+            <option value="0.25">1/16</option>
+            <option value="0.125">1/32</option>
+          </select>
+        </div>
+        <p class="row-note" style="margin-top:0;">たまに混ざる音符(複数選択可。基準音符以外から選ばれる):</p>
+        <div style="margin-bottom:8px;">
+          <label style="margin-right:12px;"><input type="checkbox" class="noteAlt" value="4"> 1/1</label>
+          <label style="margin-right:12px;"><input type="checkbox" class="noteAlt" value="2"> 1/2</label>
+          <label style="margin-right:12px;"><input type="checkbox" class="noteAlt" value="1"> 1/4</label>
+          <label style="margin-right:12px;"><input type="checkbox" class="noteAlt" value="0.5"> 1/8</label>
+          <label style="margin-right:12px;"><input type="checkbox" class="noteAlt" value="0.25" checked> 1/16</label>
+          <label><input type="checkbox" class="noteAlt" value="0.125"> 1/32</label>
+        </div>
+        <div class="row-head"><label>グリッドが飛ぶ確率</label><span class="val" id="valGridJump">15%</span></div>
+        <input type="range" id="gridJumpProb" min="0" max="100" value="15">
       </div>
       <p class="row-note">ここだけは、今のゾーンが終わった瞬間に次のゾーン長として反映されます(それ以外のツマミより反応が遅く感じることがあります)。</p>
     </div>
@@ -175,7 +203,7 @@
 
     <div class="row">
       <div class="row-head"><label>不安定さ(誤作動っぽさ)</label><span class="val" id="valInstability">100%</span></div>
-      <input type="range" id="instability" min="0" max="100" value="100">
+      <input type="range" id="instability" min="0" max="200" value="100">
     </div>
 
     <div class="row">
@@ -204,12 +232,12 @@
     </div>
 
     <div class="row">
-      <div class="row-head"><label>暴れの持続時間</label></div>
+      <div class="row-head"><label>暴れの最大持続時間(離し忘れ対策の安全装置)</label></div>
       <input type="number" id="chaosHoldSec" value="4" min="0.5" max="60" step="0.5"><span>秒</span>
     </div>
 
     <div class="row">
-      <div class="row-head"><label>暴れの系統(押すと数秒間だけON)</label></div>
+      <div class="row-head"><label>暴れの系統(押している間だけON)</label></div>
       <button id="btnChaosSpace" type="button">空間系</button>
       <button id="btnChaosPitch" type="button">ピッチ暴走系</button>
       <button id="btnChaosMisread" type="button">データ誤読系</button>
@@ -267,6 +295,32 @@
   const winMaxEl=document.getElementById('winMax');
   const zoneMinEl=document.getElementById('zoneMin');
   const zoneMaxEl=document.getElementById('zoneMax');
+  const zoneModeMsEl=document.getElementById('zoneModeMs');
+  const zoneModeBpmEl=document.getElementById('zoneModeBpm');
+  const zoneMsControls=document.getElementById('zoneMsControls');
+  const zoneBpmControls=document.getElementById('zoneBpmControls');
+  const bpmValEl=document.getElementById('bpmVal');
+  const noteLenEl=document.getElementById('noteLen');
+  const noteAltEls=Array.from(document.querySelectorAll('.noteAlt'));
+  const gridJumpProbEl=document.getElementById('gridJumpProb');
+  const valGridJump=document.getElementById('valGridJump');
+  function syncZoneModeUI(){
+    const bpmMode=zoneModeBpmEl.checked;
+    zoneMsControls.style.display=bpmMode?'none':'flex';
+    zoneBpmControls.style.display=bpmMode?'block':'none';
+  }
+  [zoneModeMsEl,zoneModeBpmEl].forEach(el=>el.addEventListener('change',()=>{
+    syncZoneModeUI();
+    pushParamsToWorklet();
+  }));
+  [bpmValEl,noteLenEl].forEach(el=>el.addEventListener('input',()=>{ pushParamsToWorklet(); }));
+  [bpmValEl,noteLenEl].forEach(el=>el.addEventListener('wheel', e=>{ if(document.activeElement===el) e.preventDefault(); }, {passive:false}));
+  noteAltEls.forEach(el=>el.addEventListener('change',()=>{ pushParamsToWorklet(); }));
+  gridJumpProbEl.addEventListener('input',()=>{
+    valGridJump.textContent=gridJumpProbEl.value+'%';
+    pushParamsToWorklet();
+  });
+  syncZoneModeUI();
   [winMinEl,winMaxEl,zoneMinEl,zoneMaxEl].forEach(el=>{
     el.addEventListener('wheel', e=>{ if(document.activeElement===el) e.preventDefault(); }, {passive:false});
   });
@@ -387,6 +441,11 @@
       winMaxMs: Math.max(0.5, parseFloat(winMaxEl.value)||60),
       zoneMinMs: Math.max(5, parseFloat(zoneMinEl.value)||150),
       zoneMaxMs: Math.max(5, parseFloat(zoneMaxEl.value)||1500),
+      zoneBpmMode: zoneModeBpmEl.checked?1:0,
+      bpm: Math.max(20, parseFloat(bpmValEl.value)||120),
+      noteBase: parseFloat(noteLenEl.value)||1,
+      noteAlts: noteAltEls.filter(el=>el.checked).map(el=>parseFloat(el.value)),
+      gridJumpProb: parseFloat(gridJumpProbEl.value),
       density: parseFloat(densityEl.value),
       instability: parseFloat(instabilityEl.value),
       crush: parseFloat(crushEl.value),
@@ -412,6 +471,7 @@
     valSober.textContent=soberEl.value+'%';
     valStereo.textContent=stereoEl.value+'%';
     valXfade.textContent=xfadeEl.value+' ms';
+    valGridJump.textContent=gridJumpProbEl.value+'%';
   }
   const allParamEls=[winMinEl,winMaxEl,zoneMinEl,zoneMaxEl,densityEl,instabilityEl,crushEl,bleedEl,soberEl,stereoEl,xfadeEl];
   allParamEls.forEach(el=>el.addEventListener('input',()=>{
@@ -421,18 +481,27 @@
   const chaosActive={space:false, pitch:false, misread:false};
   const chaosTimers={space:null, pitch:null, misread:null};
   function armChaosButton(btn, key){
-    btn.addEventListener('click',()=>{
+    const start=(e)=>{
+      e.preventDefault();
+      if(chaosActive[key]) return;
       chaosActive[key]=true;
       btn.classList.add('primary');
       pushParamsToWorklet();
+      const failsafeMs=Math.max(500, (parseFloat(chaosHoldSecEl.value)||4)*1000);
       clearTimeout(chaosTimers[key]);
-      const holdMs=Math.max(100, (parseFloat(chaosHoldSecEl.value)||4)*1000);
-      chaosTimers[key]=setTimeout(()=>{
-        chaosActive[key]=false;
-        btn.classList.remove('primary');
-        pushParamsToWorklet();
-      }, holdMs);
-    });
+      chaosTimers[key]=setTimeout(stop, failsafeMs);
+    };
+    const stop=()=>{
+      if(!chaosActive[key]) return;
+      chaosActive[key]=false;
+      btn.classList.remove('primary');
+      pushParamsToWorklet();
+      clearTimeout(chaosTimers[key]);
+    };
+    btn.addEventListener('pointerdown', start);
+    btn.addEventListener('pointerup', stop);
+    btn.addEventListener('pointerleave', stop);
+    btn.addEventListener('pointercancel', stop);
   }
   armChaosButton(btnChaosSpace,'space');
   armChaosButton(btnChaosPitch,'pitch');
@@ -479,6 +548,10 @@
   btnResetParams.addEventListener('click',()=>{
     winMinEl.value=8; winMaxEl.value=60;
     zoneMinEl.value=150; zoneMaxEl.value=1500;
+    zoneModeMsEl.checked=true; zoneModeBpmEl.checked=false;
+    bpmValEl.value=120; noteLenEl.value='1'; gridJumpProbEl.value=15;
+    noteAltEls.forEach(el=>{ el.checked = (el.value==='0.25'); });
+    syncZoneModeUI();
     densityEl.value=100; instabilityEl.value=100;
     crushEl.value=30; bleedEl.value=100;
     soberEl.value=15; stereoEl.value=30; xfadeEl.value=3;
@@ -505,7 +578,7 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
     this.loaded=false;
     this.sr=sampleRate;
     this.anchors=[];
-    this.params={winMinMs:8,winMaxMs:60,zoneMinMs:150,zoneMaxMs:1500,density:100,instability:100,crush:30,bleed:100,sober:15,stereo:30,xfadeMs:3,chaosSpace:0,chaosPitch:0,chaosMisread:0};
+    this.params={winMinMs:8,winMaxMs:60,zoneMinMs:150,zoneMaxMs:1500,zoneBpmMode:0,bpm:120,noteBase:1,noteAlts:[],gridJumpProb:15,density:100,instability:100,crush:30,bleed:100,sober:15,stereo:30,xfadeMs:3,chaosSpace:0,chaosPitch:0,chaosMisread:0};
     this.readCursor=0;
     this.seg=null;
     this.chanState=[{filterY:0,crushHeld:0,crushCounter:0},{filterY:0,crushHeld:0,crushCounter:0}];
@@ -548,10 +621,20 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
 
   startNewSegment(){
     const p=this.params;
-    const minZoneLen=Math.max(1,Math.round(p.zoneMinMs/1000*this.sr));
-    const maxZoneLen=Math.max(minZoneLen,Math.round(p.zoneMaxMs/1000*this.sr));
-    let zoneLen=Math.round(minZoneLen+Math.random()*(maxZoneLen-minZoneLen));
-    zoneLen=Math.max(1,zoneLen);
+    let zoneLen;
+    if(p.zoneBpmMode){
+      let noteFrac=p.noteBase;
+      if(p.noteAlts && p.noteAlts.length && Math.random()*100<p.gridJumpProb){
+        noteFrac=p.noteAlts[Math.floor(Math.random()*p.noteAlts.length)];
+      }
+      const quarterMs=60000/Math.max(20,p.bpm);
+      const gridMs=quarterMs*noteFrac;
+      zoneLen=Math.max(1, Math.round(gridMs/1000*this.sr));
+    } else {
+      const minZoneLen=Math.max(1,Math.round(p.zoneMinMs/1000*this.sr));
+      const maxZoneLen=Math.max(minZoneLen,Math.round(p.zoneMaxMs/1000*this.sr));
+      zoneLen=Math.max(1, Math.round(minZoneLen+Math.random()*(maxZoneLen-minZoneLen)));
+    }
     const sober=Math.random()*100<p.sober;
     const isLoop=Math.random()*100<p.density;
     if(isLoop){
@@ -699,8 +782,9 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
       const crushPct = seg.sober ? 0 : this.params.crush;
       if(crushPct>0){
         const amt=crushPct/100;
-        const holdFactor=1+Math.round(Math.pow(amt,1.2)*47);
-        const bits=Math.max(1, Math.round(16-Math.pow(amt,0.8)*15));
+        const effAmt=amt*0.3;
+        const holdFactor=1+Math.round(Math.pow(effAmt,1.2)*47);
+        const bits=Math.max(1, Math.round(16-Math.pow(effAmt,0.8)*15));
         const step=2/Math.pow(2,bits);
         for(let ci=0;ci<2;ci++){
           const st=this.chanState[ci];
