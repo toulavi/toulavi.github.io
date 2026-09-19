@@ -38,6 +38,331 @@
   .seqbar button{padding:9px 14px}
   .tempo{display:flex;align-items:center;gap:8px;font-size:12px;color:#aaa}
   .tempo input{width:130px}
+  @media(max-width:700px){.seq{grid-template-columns:70px repeat(16,32px)}}
+
+  .source-title{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .source-title h3{margin:0;font-size:16px}
+  .marker-help{font-size:11px;color:#777}
+  #wave{cursor:crosshair}
+  .marker-legend{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;font-size:11px;color:#999}
+  .marker-legend span{padding:3px 7px;border:1px solid #333;border-radius:5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>DECOMPOSE DRUM</h1>
+  <div class="sub">ひとつの音源を、4種類の「音の性質」に解体して叩く簡易デモ</div>
+
+  <div class="panel">
+    <input id="file" type="file" accept="audio/*">
+    <div class="source-title"><h3>SOURCE MAP</h3><div class="marker-help">● をドラッグして参照位置を決める</div></div><canvas id="wave" width="1200" height="220"></canvas><div class="marker-legend"><span>KICK</span><span>SNARE</span><span>HAT</span><span>TOM / FX</span></div>
+    <div class="hint">音源を読み込むと、波形を「低域 / アタック / 高域 / 長い音」に分解します。パッドを叩くと、その性質を持つ場所から短い断片を取り出します。</div>
+  </div>
+
+  <div class="panel">
+    <div class="pads">
+      <button data-kind="low"><div class="name">KICK</div><div class="pos">低い成分</div></button>
+      <button data-kind="attack"><div class="name">SNARE</div><div class="pos">強いアタック</div></button>
+      <button data-kind="high"><div class="name">HAT</div><div class="pos">高い成分</div></button>
+      <button data-kind="long"><div class="name">TOM / FX</div><div class="pos">長く鳴る場所</div></button>
+    </div>
+    <div class="status" id="status">音源を読み込んでください。</div>
+  </div>
+
+  <div class="panel controls">
+    <div>
+      <label>解体率 <span id="decompVal">55%</span></label>
+      <input id="decomp" type="range" min="0" max="100" value="55">
+    </div>
+    <div>
+      <label>断片の長さ <span id="lenVal">180ms</span></label>
+      <input id="len" type="range" min="50" max="500" value="180">
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3 style="margin:0;font-size:16px">STEP GRID</h3>
+    <div class="hint">4つの断片を16ステップに配置して、音源そのものからリズムを組みます。セルをクリックしてON/OFF。</div>
+    <div id="seq" class="seq"></div>
+    <div class="seqbar">
+      <button id="seqPlay">▶ シーケンス再生</button>
+      <button id="seqClear">消去</button>
+      <div class="tempo">BPM <input id="tempo" type="range" min="60" max="180" value="120"><span id="tempoVal">120</span></div>
+    </div>
+  </div>
+
+  <div class="panel transport">
+    <div class="row">
+      <button id="start">▶ 再生</button>
+      <button id="stop">■ 停止</button>
+      <button id="random">✦ 再配置</button>
+    </div>
+    <div class="hint" style="margin-top:10px">
+      「再配置」を押すと、同じ音源から各パッドが参照する場所を変えます。<br>
+      まずは声・ピアノ・環境音など、ドラムではない音源を入れると挙動がわかりやすいです。
+    </div>
+  </div>
+</div>
+
+<script>
+let ctx, buffer=null, master=null;
+const wave=document.getElementById('wave'), g=wave.getContext('2d');
+const file=document.getElementById('file');
+const status=document.getElementById('status');
+const decomp=document.getElementById('decomp');
+const len=document.getElementById('len');
+let map={low:0,attack:0,high:0,long:0};
+
+async function ensureCtx(){
+  if(!ctx){
+    const AudioCtx=window.AudioContext||window.webkitAudioContext;
+    if(!AudioCtx) throw new Error('このブラウザはWeb Audio APIに対応していません。');
+    ctx=new AudioCtx();
+    master=ctx.createGain();
+    master.gain.value=.85;
+    master.connect(ctx.destination);
+  }
+  if(ctx.state!=='running') await ctx.resume();
+}
+
+file.onchange=async e=>{
+  const f=e.target.files[0]; if(!f)return;
+  try{
+    await ensureCtx();
+    buffer=await ctx.decodeAudioData(await f.arrayBuffer());
+    drawWave(); redistribute();
+    status.textContent=`${f.name} / ${buffer.duration.toFixed(2)} sec — 解体完了`;
+  }catch(err){
+    console.error(err);
+    status.textContent='音源の読み込みに失敗しました: '+err.message;
+  }
+};
+
+function drawWave(){
+  g.clearRect(0,0,wave.width,wave.height);
+  if(!buffer)return;
+  const data=buffer.getChannelData(0);
+  g.strokeStyle='#888'; g.beginPath();
+  const step=Math.ceil(data.length/wave.width);
+  for(let x=0;x<wave.width;x++){
+    let max=0;
+    for(let j=0;j<step && x*step+j<data.length;j++) max=Math.max(max,Math.abs(data[x*step+j]));
+    const y=wave.height/2-max*95;
+    g.moveTo(x,y); g.lineTo(x,wave.height/2+max*95);
+  }
+  g.stroke();
+  drawMarkers();
+}
+function drawMarkers(){
+  if(!buffer)return;
+  const kinds=Object.keys(map);
+  kinds.forEach((k,i)=>{
+    const x=map[k]/buffer.duration*wave.width;
+    g.fillStyle='#eee'; g.fillRect(x-2,0,4,wave.height);
+    g.font='12px system-ui'; g.fillText(k.toUpperCase(),Math.min(x+5,wave.width-70),18+i*15);
+  });
+}
+
+function featureAt(t){
+  const data=buffer.getChannelData(0), sr=buffer.sampleRate;
+  const center=Math.floor(t*sr), n=Math.floor(sr*.08);
+  let sum=0, low=0, high=0, prev=0, attack=0;
+  for(let i=-n;i<n;i+=4){
+    const idx=Math.max(1,Math.min(data.length-1,center+i));
+    const v=data[idx], a=Math.abs(v);
+    sum+=a; attack=Math.max(attack,Math.abs(v-data[idx-1]));
+    // crude low/high energy estimates
+    const v2=data[Math.max(0,idx-8)];
+    low+=Math.abs(v+v2)*.5;
+    high+=Math.abs(v-v2);
+    prev=v;
+  }
+  return {amp:sum,low,high,attack};
+}
+function redistribute(){
+  if(!buffer)return;
+  const N=700, dur=buffer.duration, scores={low:[],attack:[],high:[],long:[]};
+  for(let i=0;i<N;i++){
+    const t=(i+.5)/N*dur;
+    const f=featureAt(t);
+    scores.low.push([f.low,t]); scores.attack.push([f.attack,t]);
+    scores.high.push([f.high,t]); scores.long.push([f.amp,t]);
+  }
+  const rate=Number(decomp.value)/100;
+  for(const k of Object.keys(scores)){
+    scores[k].sort((a,b)=>b[0]-a[0]);
+    // lower decomposition = less specialized, more central/random
+    const top=Math.max(1,Math.floor((1-rate)*scores[k].length*.8 + 8));
+    map[k]=scores[k][Math.floor(Math.random()*top)][1];
+  }
+  drawWave();
+}
+async function playSlice(kind){
+  if(!buffer){
+    status.textContent='先に音源を読み込んでください。';
+    return;
+  }
+  try{
+    await ensureCtx();
+
+    const t=Math.max(0,Math.min(map[kind],Math.max(0,buffer.duration-0.001)));
+    const requested=Number(len.value)/1000;
+    const dur=Math.max(0.01,Math.min(requested,buffer.duration-t));
+
+    const src=ctx.createBufferSource();
+    const gain=ctx.createGain();
+    src.buffer=buffer;
+
+    const now=ctx.currentTime;
+    const fade=Math.min(0.008,dur/3);
+    const endFade=Math.min(0.025,dur/3);
+
+    gain.gain.setValueAtTime(0,now);
+    gain.gain.linearRampToValueAtTime(.9,now+fade);
+    gain.gain.setValueAtTime(.9,Math.max(now+fade,now+dur-endFade));
+    gain.gain.linearRampToValueAtTime(0,now+dur);
+
+    src.connect(gain);
+    gain.connect(master);
+    trackSource(src);
+    src.start(now,t,dur);
+
+    status.textContent=`${kind.toUpperCase()} ← ${t.toFixed(2)}s / ${Math.round(dur*1000)}ms`;
+  }catch(err){
+    console.error(err);
+    status.textContent='再生エラー: '+err.message;
+  }
+}
+let dragKind=null;
+function markerAtX(x){
+  let best=null,dist=1e9;
+  Object.keys(map).forEach(k=>{const mx=map[k]/buffer.duration*wave.width,d=Math.abs(mx-x);if(d<dist){dist=d;best=k;}});
+  return dist<20?best:null;
+}
+wave.addEventListener('pointerdown',e=>{
+  if(!buffer)return;
+  const r=wave.getBoundingClientRect(),x=(e.clientX-r.left)/r.width*wave.width;
+  dragKind=markerAtX(x);
+  if(dragKind)wave.setPointerCapture(e.pointerId);
+});
+wave.addEventListener('pointermove',e=>{
+  if(!dragKind||!buffer)return;
+  const r=wave.getBoundingClientRect();
+  const x=Math.max(0,Math.min(wave.width,(e.clientX-r.left)/r.width*wave.width));
+  map[dragKind]=x/wave.width*buffer.duration;
+  drawWave();
+  status.textContent=`${dragKind.toUpperCase()} の参照位置: ${map[dragKind].toFixed(2)}s`;
+});
+wave.addEventListener('pointerup',()=>dragKind=null);
+wave.addEventListener('pointercancel',()=>dragKind=null);
+
+document.querySelectorAll('.pads button').forEach(b=>{
+  b.onclick=()=>{ b.classList.add('active'); setTimeout(()=>b.classList.remove('active'),80); playSlice(b.dataset.kind); };
+});
+decomp.oninput=()=>{document.getElementById('decompVal').textContent=decomp.value+'%'; redistribute()};
+len.oninput=()=>document.getElementById('lenVal').textContent=len.value+'ms';
+document.getElementById('random').onclick=redistribute;
+document.getElementById('start').onclick=async()=>{
+  if(!buffer){status.textContent='先に音源を読み込んでください。';return;}
+  try{
+    await ensureCtx();
+    const src=ctx.createBufferSource();
+    src.buffer=buffer;
+    src.connect(master);
+    trackSource(src);
+    src.start();
+    status.textContent='元音源を再生中';
+  }catch(err){
+    console.error(err);
+    status.textContent='再生エラー: '+err.message;
+  }
+};
+let activeSources=[];
+function trackSource(src){
+  activeSources.push(src);
+  src.addEventListener('ended',()=>{activeSources=activeSources.filter(x=>x!==src);});
+}
+document.getElementById('stop').onclick=()=>{
+  activeSources.forEach(src=>{try{src.stop()}catch(e){}});
+  activeSources=[];
+  status.textContent='停止';
+};
+
+const seqEl=document.getElementById('seq');
+const voices=['low','attack','high','long'];
+const voiceNames=['KICK','SNARE','HAT','TOM / FX'];
+const pattern=voices.map((_,r)=>Array.from({length:16},(_,c)=>r===0?[0,4,8,12].includes(c):r===1?[4,12].includes(c):r===2?c%2===0:r===3?[3,11].includes(c):false));
+let seqTimer=null, seqStep=0, seqPlaying=false;
+
+function buildSeq(){
+  seqEl.innerHTML='';
+  const corner=document.createElement('div'); corner.className='head'; seqEl.appendChild(corner);
+  for(let c=0;c<16;c++){
+    const h=document.createElement('div'); h.className='head'; h.textContent=c+1; seqEl.appendChild(h);
+  }
+  voices.forEach((v,r)=>{
+    const label=document.createElement('div'); label.className='label'; label.textContent=voiceNames[r]; seqEl.appendChild(label);
+    for(let c=0;c<16;c++){
+      const b=document.createElement('button');
+      b.className='cell'+(pattern[r][c]?' on':'');
+      b.dataset.r=r; b.dataset.c=c;
+      b.onclick=()=>{pattern[r][c]=!pattern[r][c]; b.classList.toggle('on',pattern[r][c]);};
+      seqEl.appendChild(b);
+    }
+  });
+}
+function clearPlaying(){
+  seqEl.querySelectorAll('.playing').forEach(x=>x.classList.remove('playing'));
+}
+function tick(){
+  clearPlaying();
+  const cells=seqEl.querySelectorAll(`.cell[data-c="${seqStep}"]`);
+  cells.forEach(cell=>{
+    cell.classList.add('playing');
+    const r=Number(cell.dataset.r);
+    if(pattern[r][seqStep]) playSlice(voices[r]);
+  });
+  seqStep=(seqStep+1)%16;
+}
+async function startSeq(){
+  if(seqPlaying){stopSeq();return;}
+  if(!buffer){status.textContent='先に音源を読み込んでください。';return;}
+  try{
+    await ensureCtx();
+  }catch(err){
+    console.error(err);
+    status.textContent='再生エラー: '+err.message;
+    return;
+  }
+  seqPlaying=true; seqStep=0;
+  document.getElementById('seqPlay').textContent='■ シーケンス停止';
+  tick();
+  const interval=60000/Number(document.getElementById('tempo').value)/4;
+  seqTimer=setInterval(tick,interval);
+}
+function stopSeq(){
+  seqPlaying=false; clearInterval(seqTimer); seqTimer=null; clearPlaying();
+  document.getElementById('seqPlay').textContent='▶ シーケンス再生';
+}
+document.getElementById('seqPlay').onclick=startSeq;
+document.getElementById('seqClear').onclick=()=>{voices.forEach((_,r)=>pattern[r].fill(false));buildSeq();};
+document.getElementById('tempo').oninput=e=>{
+  document.getElementById('tempoVal').textContent=e.target.value;
+  if(seqPlaying){stopSeq();startSeq();}
+};
+buildSeq();
+
+window.addEventListener('error',e=>{
+  console.error(e.error||e.message);
+  if(status) status.textContent='エラー: '+e.message;
+});
+
+</script>
+</body>
+</html>  .seqbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}
+  .seqbar button{padding:9px 14px}
+  .tempo{display:flex;align-items:center;gap:8px;font-size:12px;color:#aaa}
+  .tempo input{width:130px}
   .voice-lens{margin-top:8px;display:grid;gap:8px}
   .voice-lens>div{display:grid;grid-template-columns:75px 1fr 58px;gap:8px;align-items:center}
   .voice-lens span,.voice-lens b{font-size:11px;color:#999}
