@@ -95,6 +95,9 @@
   a.dl:hover{color:#93ffb2;}
 
   footer{margin-top:28px;font-size:10.5px;color:var(--ink-dim);line-height:1.7;}
+  input[type=number]::-webkit-outer-spin-button,
+  input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+  input[type=number]{-moz-appearance:textfield;}
 </style>
 </head>
 <body>
@@ -158,9 +161,28 @@
 
     <div class="row">
       <div class="row-head"><label>ゾーンの長さの範囲</label></div>
-      <div class="minmax">
+      <div style="margin-bottom:8px;">
+        <label style="margin-right:16px;"><input type="radio" name="zoneTimeMode" id="zoneModeMs" value="ms" checked> ミリ秒指定</label>
+        <label><input type="radio" name="zoneTimeMode" id="zoneModeBpm" value="bpm"> BPM指定</label>
+      </div>
+      <div class="minmax" id="zoneMsControls">
         <input type="number" id="zoneMin" value="150" min="10" step="10"><span>ms 〜</span>
         <input type="number" id="zoneMax" value="1500" min="10" step="10"><span>ms</span>
+      </div>
+      <div id="zoneBpmControls" style="display:none;">
+        <div class="minmax" style="margin-bottom:8px;">
+          <input type="number" id="bpmVal" value="120" min="20" max="300" step="1"><span>BPM　基準音符:</span>
+          <select id="noteLen" style="font-family:var(--mono);background:transparent;color:var(--ink);border:1px solid var(--line);padding:6px;">
+            <option value="4">1/1(全音符)</option>
+            <option value="2">1/2</option>
+            <option value="1" selected>1/4</option>
+            <option value="0.5">1/8</option>
+            <option value="0.25">1/16</option>
+            <option value="0.125">1/32</option>
+          </select>
+        </div>
+        <div class="row-head"><label>グリッド内のゆらぎ</label><span class="val" id="valWobble">30%</span></div>
+        <input type="range" id="wobble" min="0" max="90" value="30">
       </div>
       <p class="row-note">ここだけは、今のゾーンが終わった瞬間に次のゾーン長として反映されます(それ以外のツマミより反応が遅く感じることがあります)。</p>
     </div>
@@ -172,7 +194,7 @@
 
     <div class="row">
       <div class="row-head"><label>不安定さ(誤作動っぽさ)</label><span class="val" id="valInstability">100%</span></div>
-      <input type="range" id="instability" min="0" max="100" value="100">
+      <input type="range" id="instability" min="0" max="200" value="100">
     </div>
 
     <div class="row">
@@ -201,15 +223,15 @@
     </div>
 
     <div class="row">
-      <div class="row-head"><label>暴れ強度</label><span class="val" id="valChaosAmt">0%</span></div>
-      <input type="range" id="chaosAmt" min="0" max="100" value="0">
+      <div class="row-head"><label>暴れの最大持続時間(離し忘れ対策の安全装置)</label></div>
+      <input type="number" id="chaosHoldSec" value="4" min="0.5" max="60" step="0.5"><span>秒</span>
     </div>
 
     <div class="row">
-      <div class="row-head"><label>暴れの系統</label></div>
-      <label style="margin-right:16px;"><input type="checkbox" id="chaosSpace"> 空間系(位相反転/L-R入替/極端な幅)</label>
-      <label style="margin-right:16px;"><input type="checkbox" id="chaosFeedback"> フィードバック暴走系(伝播が育って弾ける)</label>
-      <label><input type="checkbox" id="chaosPitch"> ピッチ暴走系(再生速度が突然ジャンプ)</label>
+      <div class="row-head"><label>暴れの系統(押している間だけON)</label></div>
+      <button id="btnChaosSpace" type="button">空間系</button>
+      <button id="btnChaosPitch" type="button">ピッチ暴走系</button>
+      <button id="btnChaosMisread" type="button">データ誤読系</button>
     </div>
 
     <div class="btnrow">
@@ -264,6 +286,30 @@
   const winMaxEl=document.getElementById('winMax');
   const zoneMinEl=document.getElementById('zoneMin');
   const zoneMaxEl=document.getElementById('zoneMax');
+  const zoneModeMsEl=document.getElementById('zoneModeMs');
+  const zoneModeBpmEl=document.getElementById('zoneModeBpm');
+  const zoneMsControls=document.getElementById('zoneMsControls');
+  const zoneBpmControls=document.getElementById('zoneBpmControls');
+  const bpmValEl=document.getElementById('bpmVal');
+  const noteLenEl=document.getElementById('noteLen');
+  const wobbleEl=document.getElementById('wobble');
+  const valWobble=document.getElementById('valWobble');
+  function syncZoneModeUI(){
+    const bpmMode=zoneModeBpmEl.checked;
+    zoneMsControls.style.display=bpmMode?'none':'flex';
+    zoneBpmControls.style.display=bpmMode?'block':'none';
+  }
+  [zoneModeMsEl,zoneModeBpmEl].forEach(el=>el.addEventListener('change',()=>{
+    syncZoneModeUI();
+    pushParamsToWorklet();
+  }));
+  [bpmValEl,noteLenEl].forEach(el=>el.addEventListener('input',()=>{ pushParamsToWorklet(); }));
+  [bpmValEl,noteLenEl].forEach(el=>el.addEventListener('wheel', e=>{ if(document.activeElement===el) e.preventDefault(); }, {passive:false}));
+  wobbleEl.addEventListener('input',()=>{
+    valWobble.textContent=wobbleEl.value+'%';
+    pushParamsToWorklet();
+  });
+  syncZoneModeUI();
   [winMinEl,winMaxEl,zoneMinEl,zoneMaxEl].forEach(el=>{
     el.addEventListener('wheel', e=>{ if(document.activeElement===el) e.preventDefault(); }, {passive:false});
   });
@@ -274,11 +320,10 @@
   const soberEl=document.getElementById('sober');
   const stereoEl=document.getElementById('stereo');
   const xfadeEl=document.getElementById('xfade');
-  const chaosAmtEl=document.getElementById('chaosAmt');
-  const chaosSpaceEl=document.getElementById('chaosSpace');
-  const chaosFeedbackEl=document.getElementById('chaosFeedback');
-  const chaosPitchEl=document.getElementById('chaosPitch');
-  const valChaosAmt=document.getElementById('valChaosAmt');
+  const chaosHoldSecEl=document.getElementById('chaosHoldSec');
+  const btnChaosSpace=document.getElementById('btnChaosSpace');
+  const btnChaosPitch=document.getElementById('btnChaosPitch');
+  const btnChaosMisread=document.getElementById('btnChaosMisread');
   const valDensity=document.getElementById('valDensity');
   const valInstability=document.getElementById('valInstability');
   const valCrush=document.getElementById('valCrush');
@@ -379,12 +424,25 @@
   });
 
   // ---------------- パラメータ ----------------
+  function computeZoneRangeMs(){
+    if(zoneModeBpmEl.checked){
+      const bpm=Math.max(20, parseFloat(bpmValEl.value)||120);
+      const noteFrac=parseFloat(noteLenEl.value)||1;
+      const quarterMs=60000/bpm;
+      const gridMs=quarterMs*noteFrac;
+      const wobble=(parseFloat(wobbleEl.value)||0)/100;
+      const lo=Math.max(5, gridMs*(1-wobble));
+      const hi=Math.max(lo+1, gridMs*(1+wobble));
+      return [lo, hi];
+    }
+    return [Math.max(5, parseFloat(zoneMinEl.value)||150), Math.max(5, parseFloat(zoneMaxEl.value)||1500)];
+  }
   function currentParams(){
+    const [zoneMinMs, zoneMaxMs]=computeZoneRangeMs();
     return {
       winMinMs: Math.max(0.5, parseFloat(winMinEl.value)||8),
       winMaxMs: Math.max(0.5, parseFloat(winMaxEl.value)||60),
-      zoneMinMs: Math.max(5, parseFloat(zoneMinEl.value)||150),
-      zoneMaxMs: Math.max(5, parseFloat(zoneMaxEl.value)||1500),
+      zoneMinMs, zoneMaxMs,
       density: parseFloat(densityEl.value),
       instability: parseFloat(instabilityEl.value),
       crush: parseFloat(crushEl.value),
@@ -392,10 +450,9 @@
       sober: parseFloat(soberEl.value),
       stereo: parseFloat(stereoEl.value),
       xfadeMs: parseFloat(xfadeEl.value),
-      chaosAmt: parseFloat(chaosAmtEl.value),
-      chaosSpace: chaosSpaceEl.checked?1:0,
-      chaosFeedback: chaosFeedbackEl.checked?1:0,
-      chaosPitch: chaosPitchEl.checked?1:0
+      chaosSpace: chaosActive.space?1:0,
+      chaosPitch: chaosActive.pitch?1:0,
+      chaosMisread: chaosActive.misread?1:0
     };
   }
 
@@ -411,16 +468,41 @@
     valSober.textContent=soberEl.value+'%';
     valStereo.textContent=stereoEl.value+'%';
     valXfade.textContent=xfadeEl.value+' ms';
-    valChaosAmt.textContent=chaosAmtEl.value+'%';
+    valWobble.textContent=wobbleEl.value+'%';
   }
-  const allParamEls=[winMinEl,winMaxEl,zoneMinEl,zoneMaxEl,densityEl,instabilityEl,crushEl,bleedEl,soberEl,stereoEl,xfadeEl,chaosAmtEl];
+  const allParamEls=[winMinEl,winMaxEl,zoneMinEl,zoneMaxEl,densityEl,instabilityEl,crushEl,bleedEl,soberEl,stereoEl,xfadeEl];
   allParamEls.forEach(el=>el.addEventListener('input',()=>{
     syncLabels();
     pushParamsToWorklet();
   }));
-  [chaosSpaceEl,chaosFeedbackEl,chaosPitchEl].forEach(el=>el.addEventListener('change',()=>{
-    pushParamsToWorklet();
-  }));
+  const chaosActive={space:false, pitch:false, misread:false};
+  const chaosTimers={space:null, pitch:null, misread:null};
+  function armChaosButton(btn, key){
+    const start=(e)=>{
+      e.preventDefault();
+      if(chaosActive[key]) return;
+      chaosActive[key]=true;
+      btn.classList.add('primary');
+      pushParamsToWorklet();
+      const failsafeMs=Math.max(500, (parseFloat(chaosHoldSecEl.value)||4)*1000);
+      clearTimeout(chaosTimers[key]);
+      chaosTimers[key]=setTimeout(stop, failsafeMs);
+    };
+    const stop=()=>{
+      if(!chaosActive[key]) return;
+      chaosActive[key]=false;
+      btn.classList.remove('primary');
+      pushParamsToWorklet();
+      clearTimeout(chaosTimers[key]);
+    };
+    btn.addEventListener('pointerdown', start);
+    btn.addEventListener('pointerup', stop);
+    btn.addEventListener('pointerleave', stop);
+    btn.addEventListener('pointercancel', stop);
+  }
+  armChaosButton(btnChaosSpace,'space');
+  armChaosButton(btnChaosPitch,'pitch');
+  armChaosButton(btnChaosMisread,'misread');
   syncLabels();
 
   function randomizeParams(){
@@ -463,10 +545,20 @@
   btnResetParams.addEventListener('click',()=>{
     winMinEl.value=8; winMaxEl.value=60;
     zoneMinEl.value=150; zoneMaxEl.value=1500;
+    zoneModeMsEl.checked=true; zoneModeBpmEl.checked=false;
+    bpmValEl.value=120; noteLenEl.value='1'; wobbleEl.value=30;
+    syncZoneModeUI();
     densityEl.value=100; instabilityEl.value=100;
     crushEl.value=30; bleedEl.value=100;
     soberEl.value=15; stereoEl.value=30; xfadeEl.value=3;
-    chaosAmtEl.value=0; chaosSpaceEl.checked=false; chaosFeedbackEl.checked=false; chaosPitchEl.checked=false;
+    chaosHoldSecEl.value=4;
+    ['space','pitch','misread'].forEach(k=>{
+      chaosActive[k]=false;
+      clearTimeout(chaosTimers[k]);
+    });
+    btnChaosSpace.classList.remove('primary');
+    btnChaosPitch.classList.remove('primary');
+    btnChaosMisread.classList.remove('primary');
     syncLabels();
     pushParamsToWorklet();
   });
@@ -482,8 +574,7 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
     this.loaded=false;
     this.sr=sampleRate;
     this.anchors=[];
-    this.params={winMinMs:8,winMaxMs:60,zoneMinMs:150,zoneMaxMs:1500,density:100,instability:100,crush:30,bleed:100,sober:15,stereo:30,xfadeMs:3,chaosAmt:0,chaosSpace:0,chaosFeedback:0,chaosPitch:0};
-    this.fbAccum=[0,0];
+    this.params={winMinMs:8,winMaxMs:60,zoneMinMs:150,zoneMaxMs:1500,density:100,instability:100,crush:30,bleed:100,sober:15,stereo:30,xfadeMs:3,chaosSpace:0,chaosPitch:0,chaosMisread:0};
     this.readCursor=0;
     this.seg=null;
     this.chanState=[{filterY:0,crushHeld:0,crushCounter:0},{filterY:0,crushHeld:0,crushCounter:0}];
@@ -501,6 +592,7 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
         const ch0=new Float32Array(d.channels[0]);
         const ch1=d.channels.length>1?new Float32Array(d.channels[1]):ch0;
         this.channels=[ch0,ch1];
+        this.channelViews=[new DataView(ch0.buffer), new DataView(ch1.buffer)];
         this.srcLength=ch0.length;
         this.readCursor=0;
         this.seg=null;
@@ -538,7 +630,7 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
       const anchor=this.pickAnchor();
       const jitter=p.instability/100;
       this.seg={type:'loop', remaining:zoneLen, total:zoneLen, anchor, winLen, baseWinLen:winLen, tilePos:0,
-        reverseThis: Math.random()<jitter*0.3, sober, stereoMode:null, stereoFactor:0, pitchMult:1, hardInvert:false, hardSwap:false};
+        reverseThis: Math.random()<jitter*0.3, sober, stereoMode:null, stereoFactor:0, pitchMult:1, misreadShift:0, hardInvert:false, hardSwap:false};
       if(Math.random()*100<p.stereo){
         const amt=p.stereo/100;
         this.seg.stereoMode = Math.random()<0.5?'narrow':'wide';
@@ -547,7 +639,7 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
           : (1.1+amt*6+Math.random()*0.4);
       }
       if(p.chaosSpace){
-        const cAmt=p.chaosAmt/100;
+        const cAmt=1;
         if(Math.random()<cAmt*0.6){
           this.seg.stereoMode='wide';
           this.seg.stereoFactor=1.1+cAmt*30+Math.random()*5;
@@ -620,7 +712,7 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
         seg.tilePos=0;
         seg.reverseThis=Math.random()<jitter*0.3;
         if(this.params.chaosPitch){
-          const cAmt=this.params.chaosAmt/100;
+          const cAmt=1;
           if(Math.random()<0.3+cAmt*0.6){
             const maxSemi=2+cAmt*46;
             const semis=(Math.random()*2-1)*maxSemi;
@@ -631,6 +723,12 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
         } else {
           seg.pitchMult=1;
         }
+        if(this.params.chaosMisread){
+          const cAmt=1;
+          seg.misreadShift = Math.random()<0.25+cAmt*0.5 ? 1+Math.floor(Math.random()*3) : 0;
+        } else {
+          seg.misreadShift=0;
+        }
       }
       const contPos = seg.reverseThis ? (seg.winLen-1-seg.tilePos) : seg.tilePos;
       const winLenInt=Math.max(1, Math.round(seg.winLen));
@@ -639,17 +737,27 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
       const i0m=((i0 % winLenInt)+winLenInt)%winLenInt;
       const i1m=(i0m+1)%winLenInt;
       const a0=(seg.anchor+i0m)%this.srcLength, a1=(seg.anchor+i1m)%this.srcLength;
-      out[0]=this.channels[0][a0]*(1-frac)+this.channels[0][a1]*frac;
-      out[1]=this.channels[1][a0]*(1-frac)+this.channels[1][a1]*frac;
+      if(seg.misreadShift>0){
+        const v0r=this.channelViews[0], v1r=this.channelViews[1];
+        const bo0=Math.min(v0r.byteLength-4, Math.max(0, a0*4+seg.misreadShift));
+        const bo1=Math.min(v1r.byteLength-4, Math.max(0, a1*4+seg.misreadShift));
+        let mv0=v0r.getFloat32(bo0, true);
+        let mv1=v1r.getFloat32(bo1, true);
+        out[0]=isFinite(mv0) ? Math.tanh(mv0) : 0;
+        out[1]=isFinite(mv1) ? Math.tanh(mv1) : 0;
+      } else {
+        out[0]=this.channels[0][a0]*(1-frac)+this.channels[0][a1]*frac;
+        out[1]=this.channels[1][a0]*(1-frac)+this.channels[1][a1]*frac;
+      }
       seg.tilePos+=(seg.pitchMult||1);
 
       const jitter=this.params.instability/100;
       if(jitter>0){
         const t=1-(seg.remaining/seg.total);
-        const centerAlpha=1-jitter*0.95;
-        const swing=0.35*jitter;
-        let alpha=centerAlpha-swing*Math.sin(Math.PI*t)+(Math.random()-0.5)*0.15*jitter;
-        alpha=Math.max(0.01,Math.min(1,alpha));
+        const centerAlpha=1-jitter*0.85;
+        const swing=0.28*jitter;
+        let alpha=centerAlpha-swing*Math.sin(Math.PI*t)+(Math.random()-0.5)*0.12*jitter;
+        alpha=Math.max(0.05,Math.min(1,alpha));
         for(let ci=0;ci<2;ci++){
           const st=this.chanState[ci];
           st.filterY = st.filterY + alpha*(out[ci]-st.filterY);
@@ -660,8 +768,9 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
       const crushPct = seg.sober ? 0 : this.params.crush;
       if(crushPct>0){
         const amt=crushPct/100;
-        const holdFactor=1+Math.round(Math.pow(amt,1.2)*47);
-        const bits=Math.max(1, Math.round(16-Math.pow(amt,0.8)*15));
+        const effAmt=amt*0.3;
+        const holdFactor=1+Math.round(Math.pow(effAmt,1.2)*47);
+        const bits=Math.max(1, Math.round(16-Math.pow(effAmt,0.8)*15));
         const step=2/Math.pow(2,bits);
         for(let ci=0;ci<2;ci++){
           const st=this.chanState[ci];
@@ -700,15 +809,6 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
       this.pendingBleed.idx++;
     }
 
-    if(this.params.chaosFeedback){
-      const cAmt=this.params.chaosAmt/100;
-      const fbGain=1+cAmt*0.35;
-      for(let ci=0;ci<2;ci++){
-        this.fbAccum[ci]=this.fbAccum[ci]*fbGain*0.995+out[ci]*0.15*cAmt;
-        if(Math.abs(this.fbAccum[ci])>1.8) this.fbAccum[ci]=0;
-        out[ci]=Math.max(-1,Math.min(1, out[ci]+this.fbAccum[ci]*0.5));
-      }
-    }
 
     this.pushHistory(0,out[0]);
     this.pushHistory(1,out[1]);
