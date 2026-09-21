@@ -253,6 +253,7 @@
       <div class="row-head"><label>暴れの系統(押している間だけON)</label></div>
       <button id="btnChaosPitch" type="button">ピッチ暴走系</button>
       <button id="btnChaosMisread" type="button">データ誤読系</button>
+      <button id="btnChaosDry" type="button">元音源に戻す(押している間)</button>
     </div>
     </section>
   </div>
@@ -360,6 +361,7 @@
   const xfadeEl=document.getElementById('xfade');
   const btnChaosPitch=document.getElementById('btnChaosPitch');
   const btnChaosMisread=document.getElementById('btnChaosMisread');
+  const btnChaosDry=document.getElementById('btnChaosDry');
   const valDensity=document.getElementById('valDensity');
   const valInstability=document.getElementById('valInstability');
   const valCrush=document.getElementById('valCrush');
@@ -478,7 +480,8 @@
       stereo: parseFloat(stereoEl.value),
       xfadeMs: parseFloat(xfadeEl.value),
       chaosPitch: chaosActive.pitch?1:0,
-      chaosMisread: chaosActive.misread?1:0
+      chaosMisread: chaosActive.misread?1:0,
+      chaosDry: chaosActive.dry?1:0
     };
   }
 
@@ -500,8 +503,8 @@
     syncLabels();
     pushParamsToWorklet();
   }));
-  const chaosActive={pitch:false, misread:false};
-  const chaosTimers={pitch:null, misread:null};
+  const chaosActive={pitch:false, misread:false, dry:false};
+  const chaosTimers={pitch:null, misread:null, dry:null};
   function armChaosButton(btn, key){
     const start=(e)=>{
       e.preventDefault();
@@ -527,6 +530,7 @@
   }
   armChaosButton(btnChaosPitch,'pitch');
   armChaosButton(btnChaosMisread,'misread');
+  armChaosButton(btnChaosDry,'dry');
   syncLabels();
 
   function randomizeParams(){
@@ -575,12 +579,13 @@
     densityEl.value=100; instabilityEl.value=100;
     crushEl.value=30;
     soberEl.value=15; stereoEl.value=30; xfadeEl.value=3;
-    ['pitch','misread'].forEach(k=>{
+    ['pitch','misread','dry'].forEach(k=>{
       chaosActive[k]=false;
       clearTimeout(chaosTimers[k]);
     });
     btnChaosPitch.classList.remove('primary');
     btnChaosMisread.classList.remove('primary');
+    btnChaosDry.classList.remove('primary');
     syncLabels();
     pushParamsToWorklet();
   });
@@ -596,7 +601,7 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
     this.loaded=false;
     this.sr=sampleRate;
     this.anchors=[];
-    this.params={winMinMs:8,winMaxMs:60,zoneMinMs:150,zoneMaxMs:1500,zoneBpmMode:0,bpm:120,noteBase:1,noteAlts:[],gridJumpProb:15,density:100,instability:100,crush:30,bleed:100,sober:15,stereo:30,xfadeMs:3,chaosPitch:0,chaosMisread:0};
+    this.params={winMinMs:8,winMaxMs:60,zoneMinMs:150,zoneMaxMs:1500,zoneBpmMode:0,bpm:120,noteBase:1,noteAlts:[],gridJumpProb:15,density:100,instability:100,crush:30,bleed:100,sober:15,stereo:30,xfadeMs:3,chaosPitch:0,chaosMisread:0,chaosDry:0};
     this.readCursor=0;
     this.seg=null;
     this.chanState=[{filterY:0,crushHeld:0,crushCounter:0},{filterY:0,crushHeld:0,crushCounter:0}];
@@ -711,6 +716,17 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
   }
 
   processSample(out){
+    if(this.params.chaosDry){
+      const idx=this.readCursor % this.srcLength;
+      out[0]=this.channels[0][idx];
+      out[1]=this.channels[1][idx];
+      this.readCursor=(this.readCursor+1)%this.srcLength;
+      this.pushHistory(0,out[0]);
+      this.pushHistory(1,out[1]);
+      this.historyPos++;
+      this.hasHistory=true;
+      return;
+    }
     if(!this.seg || this.seg.remaining<=0){
       this.finishSegmentAndMaybeBleed();
       this.startNewSegment();
