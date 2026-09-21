@@ -62,7 +62,7 @@
   @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
   .statusline{font-size:10.5px;color:var(--ink-dim);}
 
-  #params{display:grid;grid-template-columns:repeat(3,1fr);gap:4px 20px;}
+  #params{display:grid;grid-template-columns:repeat(3,1fr);gap:4px 20px;max-height:calc(100vh - 90px);overflow-y:auto;padding-right:6px;}
   #params .row{grid-column:span 1;}
   #params .row.wide{grid-column:1/-1;}
   .row{margin-bottom:10px;}
@@ -111,8 +111,6 @@
 
   <header>
     <p class="tag">MICROLOOP / LIVE</p>
-    <h1>スライダーが<span>その場で</span>音に反映される版</h1>
-    <p class="desc">AudioWorkletで常時再生しながら処理するリアルタイム版です。ファイルを書き出して確認する手順はなく、スライダーを動かすとすぐ音に出ます。良い瞬間が出たら録音でその場で捕まえられます。</p>
   </header>
 
   <section id="protocolWarning" style="display:none;border-color:var(--red);">
@@ -170,6 +168,12 @@
     </div>
 
     <section id="params" style="display:none;">
+    <div class="btnrow">
+      <button id="btnRandom">ランダム(即反映)</button>
+      <button id="btnFullGlitch">フルグリッチ(密度/不安定=100%)</button>
+      <button id="btnResetParams">標準に戻す</button>
+    </div>
+
     <div class="row">
       <div class="row-head"><label>ループ長の範囲</label></div>
       <div class="minmax">
@@ -221,18 +225,13 @@
     </div>
 
     <div class="row">
-      <div class="row-head"><label>不安定さ(誤作動っぽさ)</label><span class="val" id="valInstability">100%</span></div>
+      <div class="row-head"><label>不安定さ/伝播(一括)</label><span class="val" id="valInstability">100%</span></div>
       <input type="range" id="instability" min="0" max="200" value="100">
     </div>
 
     <div class="row">
       <div class="row-head"><label>劣化(間引き/ビットクラッシュ)</label><span class="val" id="valCrush">30%</span></div>
       <input type="range" id="crush" min="0" max="100" value="30">
-    </div>
-
-    <div class="row">
-      <div class="row-head"><label>誤作動の伝播</label><span class="val" id="valBleed">100%</span></div>
-      <input type="range" id="bleed" min="0" max="100" value="100">
     </div>
 
     <div class="row">
@@ -250,22 +249,10 @@
       <input type="range" id="xfade" min="0" max="150" value="3">
     </div>
 
-    <div class="row">
-      <div class="row-head"><label>暴れの最大持続時間(離し忘れ対策の安全装置)</label></div>
-      <input type="number" id="chaosHoldSec" value="4" min="0.5" max="60" step="0.5"><span>秒</span>
-    </div>
-
     <div class="row wide">
       <div class="row-head"><label>暴れの系統(押している間だけON)</label></div>
-      <button id="btnChaosSpace" type="button">空間系</button>
       <button id="btnChaosPitch" type="button">ピッチ暴走系</button>
       <button id="btnChaosMisread" type="button">データ誤読系</button>
-    </div>
-
-    <div class="btnrow">
-      <button id="btnRandom">ランダム(即反映)</button>
-      <button id="btnFullGlitch">フルグリッチ(密度/不安定=100%)</button>
-      <button id="btnResetParams">標準に戻す</button>
     </div>
     </section>
   </div>
@@ -331,24 +318,51 @@
     pushParamsToWorklet();
   });
   syncZoneModeUI();
-  [winMinEl,winMaxEl,zoneMinEl,zoneMaxEl].forEach(el=>{
+  function enableAbletonStyleNumberInput(el){
     el.addEventListener('wheel', e=>{ if(document.activeElement===el) e.preventDefault(); }, {passive:false});
-  });
+    el.addEventListener('focus', ()=>{ el.select(); });
+    el.style.cursor='ns-resize';
+    let dragging=false, startY=0, startVal=0, moved=false;
+    el.addEventListener('pointerdown', e=>{
+      dragging=true; moved=false;
+      startY=e.clientY;
+      startVal=parseFloat(el.value)||0;
+      try{ el.setPointerCapture(e.pointerId); }catch(err){}
+    });
+    el.addEventListener('pointermove', e=>{
+      if(!dragging) return;
+      const dy=startY-e.clientY;
+      if(Math.abs(dy)>3) moved=true;
+      if(!moved) return;
+      const step=parseFloat(el.step)||1;
+      const min=(el.min!==''&&el.min!=null)?parseFloat(el.min):-Infinity;
+      const max=(el.max!==''&&el.max!=null)?parseFloat(el.max):Infinity;
+      let nv=startVal+Math.round(dy/4)*step;
+      nv=Math.max(min,Math.min(max,nv));
+      el.value = Number.isInteger(step) ? Math.round(nv) : nv;
+      el.dispatchEvent(new Event('input',{bubbles:true}));
+    });
+    const endDrag=()=>{
+      if(!dragging) return;
+      dragging=false;
+      if(moved) el.blur();
+    };
+    el.addEventListener('pointerup', endDrag);
+    el.addEventListener('pointercancel', endDrag);
+    el.addEventListener('pointerleave', e=>{ if(dragging && e.buttons===0) endDrag(); });
+  }
+  Array.from(document.querySelectorAll('input[type=number]')).forEach(enableAbletonStyleNumberInput);
   const densityEl=document.getElementById('density');
   const instabilityEl=document.getElementById('instability');
   const crushEl=document.getElementById('crush');
-  const bleedEl=document.getElementById('bleed');
   const soberEl=document.getElementById('sober');
   const stereoEl=document.getElementById('stereo');
   const xfadeEl=document.getElementById('xfade');
-  const chaosHoldSecEl=document.getElementById('chaosHoldSec');
-  const btnChaosSpace=document.getElementById('btnChaosSpace');
   const btnChaosPitch=document.getElementById('btnChaosPitch');
   const btnChaosMisread=document.getElementById('btnChaosMisread');
   const valDensity=document.getElementById('valDensity');
   const valInstability=document.getElementById('valInstability');
   const valCrush=document.getElementById('valCrush');
-  const valBleed=document.getElementById('valBleed');
   const valSober=document.getElementById('valSober');
   const valStereo=document.getElementById('valStereo');
   const valXfade=document.getElementById('valXfade');
@@ -459,11 +473,10 @@
       density: parseFloat(densityEl.value),
       instability: parseFloat(instabilityEl.value),
       crush: parseFloat(crushEl.value),
-      bleed: parseFloat(bleedEl.value),
+      bleed: Math.min(100, parseFloat(instabilityEl.value)),
       sober: parseFloat(soberEl.value),
       stereo: parseFloat(stereoEl.value),
       xfadeMs: parseFloat(xfadeEl.value),
-      chaosSpace: chaosActive.space?1:0,
       chaosPitch: chaosActive.pitch?1:0,
       chaosMisread: chaosActive.misread?1:0
     };
@@ -477,19 +490,18 @@
     valDensity.textContent=densityEl.value+'%';
     valInstability.textContent=instabilityEl.value+'%';
     valCrush.textContent=crushEl.value+'%';
-    valBleed.textContent=bleedEl.value+'%';
     valSober.textContent=soberEl.value+'%';
     valStereo.textContent=stereoEl.value+'%';
     valXfade.textContent=xfadeEl.value+' ms';
     valGridJump.textContent=gridJumpProbEl.value+'%';
   }
-  const allParamEls=[winMinEl,winMaxEl,zoneMinEl,zoneMaxEl,densityEl,instabilityEl,crushEl,bleedEl,soberEl,stereoEl,xfadeEl];
+  const allParamEls=[winMinEl,winMaxEl,zoneMinEl,zoneMaxEl,densityEl,instabilityEl,crushEl,soberEl,stereoEl,xfadeEl];
   allParamEls.forEach(el=>el.addEventListener('input',()=>{
     syncLabels();
     pushParamsToWorklet();
   }));
-  const chaosActive={space:false, pitch:false, misread:false};
-  const chaosTimers={space:null, pitch:null, misread:null};
+  const chaosActive={pitch:false, misread:false};
+  const chaosTimers={pitch:null, misread:null};
   function armChaosButton(btn, key){
     const start=(e)=>{
       e.preventDefault();
@@ -497,7 +509,7 @@
       chaosActive[key]=true;
       btn.classList.add('primary');
       pushParamsToWorklet();
-      const failsafeMs=Math.max(500, (parseFloat(chaosHoldSecEl.value)||4)*1000);
+      const failsafeMs=30000;
       clearTimeout(chaosTimers[key]);
       chaosTimers[key]=setTimeout(stop, failsafeMs);
     };
@@ -513,7 +525,6 @@
     btn.addEventListener('pointerleave', stop);
     btn.addEventListener('pointercancel', stop);
   }
-  armChaosButton(btnChaosSpace,'space');
   armChaosButton(btnChaosPitch,'pitch');
   armChaosButton(btnChaosMisread,'misread');
   syncLabels();
@@ -538,7 +549,6 @@
     densityEl.value=Math.round(10+Math.random()*80);
     instabilityEl.value=Math.round(Math.random()*100);
     crushEl.value=Math.round(Math.random()*80);
-    bleedEl.value=Math.round(Math.random()*90);
     soberEl.value=Math.round(Math.random()*40);
     stereoEl.value=Math.round(Math.random()*80);
     xfadeEl.value=Math.round(Math.random()*60);
@@ -563,14 +573,12 @@
     noteAltEls.forEach(el=>{ el.checked = (el.value==='0.25'); });
     syncZoneModeUI();
     densityEl.value=100; instabilityEl.value=100;
-    crushEl.value=30; bleedEl.value=100;
+    crushEl.value=30;
     soberEl.value=15; stereoEl.value=30; xfadeEl.value=3;
-    chaosHoldSecEl.value=4;
-    ['space','pitch','misread'].forEach(k=>{
+    ['pitch','misread'].forEach(k=>{
       chaosActive[k]=false;
       clearTimeout(chaosTimers[k]);
     });
-    btnChaosSpace.classList.remove('primary');
     btnChaosPitch.classList.remove('primary');
     btnChaosMisread.classList.remove('primary');
     syncLabels();
@@ -588,7 +596,7 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
     this.loaded=false;
     this.sr=sampleRate;
     this.anchors=[];
-    this.params={winMinMs:8,winMaxMs:60,zoneMinMs:150,zoneMaxMs:1500,zoneBpmMode:0,bpm:120,noteBase:1,noteAlts:[],gridJumpProb:15,density:100,instability:100,crush:30,bleed:100,sober:15,stereo:30,xfadeMs:3,chaosSpace:0,chaosPitch:0,chaosMisread:0};
+    this.params={winMinMs:8,winMaxMs:60,zoneMinMs:150,zoneMaxMs:1500,zoneBpmMode:0,bpm:120,noteBase:1,noteAlts:[],gridJumpProb:15,density:100,instability:100,crush:30,bleed:100,sober:15,stereo:30,xfadeMs:3,chaosPitch:0,chaosMisread:0};
     this.readCursor=0;
     this.seg=null;
     this.chanState=[{filterY:0,crushHeld:0,crushCounter:0},{filterY:0,crushHeld:0,crushCounter:0}];
@@ -654,22 +662,13 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
       const anchor=this.pickAnchor();
       const jitter=p.instability/100;
       this.seg={type:'loop', remaining:zoneLen, total:zoneLen, anchor, winLen, baseWinLen:winLen, tilePos:0,
-        reverseThis: Math.random()<jitter*0.3, sober, stereoMode:null, stereoFactor:0, pitchMult:1, misreadShift:0, hardInvert:false, hardSwap:false};
+        reverseThis: Math.random()<jitter*0.3, sober, stereoMode:null, stereoFactor:0, pitchMult:1, misreadShift:0};
       if(Math.random()*100<p.stereo){
         const amt=p.stereo/100;
         this.seg.stereoMode = Math.random()<0.5?'narrow':'wide';
         this.seg.stereoFactor = this.seg.stereoMode==='narrow'
           ? Math.max(0.02, 0.42-0.4*amt+Math.random()*0.04)
           : (1.1+amt*6+Math.random()*0.4);
-      }
-      if(p.chaosSpace){
-        const cAmt=1;
-        if(Math.random()<cAmt*0.6){
-          this.seg.stereoMode='wide';
-          this.seg.stereoFactor=1.1+cAmt*30+Math.random()*5;
-        }
-        this.seg.hardInvert = Math.random()<cAmt*0.4;
-        this.seg.hardSwap = Math.random()<cAmt*0.3;
       }
     } else {
       this.seg={type:'pass', remaining:zoneLen, total:zoneLen, sober};
@@ -811,8 +810,6 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
         out[0]=Math.max(-1,Math.min(1, mid+side));
         out[1]=Math.max(-1,Math.min(1, mid-side));
       }
-      if(seg.hardInvert) out[1]=-out[1];
-      if(seg.hardSwap){ const tmp=out[0]; out[0]=out[1]; out[1]=tmp; }
     }
 
     if(seg.blendRemaining>0 && this.hasHistory){
