@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>診断</title>
+<title>犯人探し</title>
 <style>
   :root{
     --bg: #0b0c0a;
@@ -161,6 +161,9 @@
             <button class="smallbtn" id="diagActual">② 本体AudioWorklet</button>
             <button class="smallbtn" id="diagTone">③ 440Hzテスト音</button>
             <button class="smallbtn" id="diagPass">④ 単純AudioWorklet</button>
+            <button class="smallbtn" id="diagMain">⑤ 元の再生処理</button>
+            <button class="smallbtn" id="diagReconnect">⑥ 切断→再接続</button>
+            <button class="smallbtn" id="diagRecreate">⑦ Worklet再生成</button>
           </div>
           <div id="diagResult" style="margin-top:7px;color:var(--ink-dim);line-height:1.5;">
             ①〜④を個別に押して、音が出るか確認してください。②だけが本体の処理です。
@@ -305,6 +308,9 @@
   const diagActual=document.getElementById('diagActual');
   const diagTone=document.getElementById('diagTone');
   const diagPass=document.getElementById('diagPass');
+  const diagMain=document.getElementById('diagMain');
+  const diagReconnect=document.getElementById('diagReconnect');
+  const diagRecreate=document.getElementById('diagRecreate');
   let diagSourceNode=null, diagToneNode=null, diagPassNode=null, diagPassReady=false;
 
   const winMinEl=document.getElementById('winMin');
@@ -613,6 +619,7 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
     this.channels=[new Float32Array(1), new Float32Array(1)];
     this.srcLength=0;
     this.loaded=false;
+      this._processCalls=0; this._nonFinite=0; this._exceptions=0; this._nonZero=0;
     this.sr=sampleRate;
     this.anchors=[];
     this.params={winMinMs:8,winMaxMs:60,zoneMinMs:150,zoneMaxMs:1500,zoneBpmMode:0,bpm:120,noteBase:1,noteAlts:[],gridJumpProb:15,density:100,instability:100,crush:30,bleed:100,sober:15,stereo:30,xfadeMs:3,chaosPitch:0,chaosMisread:0};
@@ -858,6 +865,7 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
   }
 
   process(inputs, outputs){
+    this._processCalls++;
     const output=outputs[0];
     const blockSize=output[0] ? output[0].length : 128;
     if(!this.loaded || this.srcLength<8){
@@ -870,12 +878,13 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
         this.processSample(tmp);
         for(let ci=0;ci<output.length;ci++){
           const v=tmp[ci % 2];
-          output[ci][i]=Number.isFinite(v) ? v : 0;
+          if(Number.isFinite(v)){ output[ci][i]=v; if(v!==0) this._nonZero++; } else { this._nonFinite++; output[ci][i]=0; }
         }
       }catch(err){
         for(let ci=0;ci<output.length;ci++) output[ci][i]=0;
         if(!this._reportedError){
           this._reportedError=true;
+          this._exceptions++;
           this.port.postMessage({type:'processorError', message:String(err && err.message ? err.message : err)});
         }
       }
@@ -900,6 +909,9 @@ registerProcessor('malfunction-processor', MalfunctionProcessor);
       numberOfInputs:0, numberOfOutputs:1, outputChannelCount:[2]
     });
     workletNode.port.onmessage=(e)=>{
+      if(e.data && e.data.type==='stats'){
+        diagResult.textContent='② Worklet stats: process='+e.data.calls+' / nonFinite='+e.data.nonFinite+' / exceptions='+e.data.exceptions+' / nonZero='+e.data.nonZero;
+      }
       if(e.data && e.data.type==='processorError'){
         diagResult.textContent='② 本体AudioWorklet: 内部例外を検出 → '+e.data.message;
         statusEl.textContent='Safari診断: 本体AudioWorklet内部で例外が発生しました。';
@@ -1063,6 +1075,40 @@ registerProcessor('malfunction-processor', MalfunctionProcessor);
     }catch(err){
       diagResult.textContent='④ エラー: '+err.message;
     }
+  });
+
+
+  diagMain.addEventListener('click',async()=>{
+    try{
+      await ensureWorklet();
+      await audioCtx.resume();
+      workletNode.connect(audioCtx.destination);
+      diagResult.textContent='⑤ 元の再生処理と同じ経路で接続中。';
+    }catch(err){ diagResult.textContent='⑤ エラー: '+err.message; }
+  });
+  diagReconnect.addEventListener('click',async()=>{
+    try{
+      if(workletNode) workletNode.disconnect();
+      await audioCtx.resume();
+      workletNode.connect(audioCtx.destination);
+      diagResult.textContent='⑥ Workletを一度disconnect→connectして再生中。';
+    }catch(err){ diagResult.textContent='⑥ エラー: '+err.message; }
+  });
+  diagRecreate.addEventListener('click',async()=>{
+    try{
+      if(workletNode) workletNode.disconnect();
+      workletReady=false;
+      workletNode=null;
+      await ensureWorklet();
+      const ch0=audioBuffer.getChannelData(0);
+      const ch1=audioBuffer.numberOfChannels>1 ? audioBuffer.getChannelData(1) : ch0;
+      workletNode.port.postMessage({type:'load', channels:[ch0,ch1]});
+      pushParamsToWorklet();
+      pushAnchorsToWorklet();
+      await audioCtx.resume();
+      workletNode.connect(audioCtx.destination);
+      diagResult.textContent='⑦ Workletを新規生成→load→connectして再生中。';
+    }catch(err){ diagResult.textContent='⑦ エラー: '+err.message; }
   });
 
   // ---------------- 再生/停止 ----------------
