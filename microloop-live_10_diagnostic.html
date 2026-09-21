@@ -26,48 +26,54 @@
     color:var(--ink);
     font-family:var(--mono);
     min-height:100vh;
-    padding:40px 20px 80px;
+    padding:16px 20px 24px;
   }
-  .wrap{max-width:780px;margin:0 auto;}
-  header{margin-bottom:34px;}
-  .tag{font-size:12px;letter-spacing:.04em;color:var(--phosphor-dim);margin:0 0 6px;}
-  h1{font-size:22px;margin:0 0 10px;font-weight:600;color:var(--ink);letter-spacing:.01em;}
+  .wrap{max-width:1360px;margin:0 auto;}
+  header{margin-bottom:14px;}
+  .tag{font-size:11px;letter-spacing:.04em;color:var(--phosphor-dim);margin:0 0 4px;}
+  h1{font-size:17px;margin:0 0 4px;font-weight:600;color:var(--ink);letter-spacing:.01em;}
   h1 span{color:var(--phosphor);}
-  .desc{font-size:13px;line-height:1.7;color:var(--ink-dim);max-width:60ch;}
+  .desc{font-size:11.5px;line-height:1.4;color:var(--ink-dim);max-width:90ch;}
 
-  section{background:var(--bg-raised);border:1px solid var(--line);border-radius:3px;padding:22px;margin-bottom:16px;}
+  .cols{display:grid;grid-template-columns:340px 1fr;gap:14px;align-items:start;}
+  @media (max-width:980px){ .cols{grid-template-columns:1fr;} }
 
-  #drop{border:1px dashed var(--line);border-radius:3px;padding:28px 18px;text-align:center;cursor:pointer;transition:border-color .15s ease, background .15s ease;}
+  section{background:var(--bg-raised);border:1px solid var(--line);border-radius:3px;padding:12px 16px;margin-bottom:10px;}
+
+  #drop{border:1px dashed var(--line);border-radius:3px;padding:14px 12px;text-align:center;cursor:pointer;transition:border-color .15s ease, background .15s ease;}
   #drop:hover, #drop.hover{border-color:var(--phosphor-dim);background:#0f130e;}
-  #drop .big{font-size:13px;color:var(--ink);}
-  #drop .small{font-size:11px;color:var(--ink-dim);margin-top:6px;}
+  #drop .big{font-size:12px;color:var(--ink);}
+  #drop .small{font-size:10.5px;color:var(--ink-dim);margin-top:4px;}
   #fileInput{display:none;}
-  #fileMeta{margin-top:14px;font-size:11px;color:var(--phosphor-dim);display:none;white-space:pre-wrap;}
+  #fileMeta{margin-top:8px;font-size:10.5px;color:var(--phosphor-dim);display:none;white-space:pre-wrap;}
 
-  #waveWrap{margin-top:16px;display:none;}
-  canvas#wave{width:100%;height:110px;display:block;background:#080906;border:1px solid var(--line);border-radius:2px;cursor:crosshair;}
-  .wavehint{font-size:10.5px;color:var(--ink-dim);margin-top:8px;line-height:1.6;}
-  .anchorbar{display:flex;justify-content:space-between;align-items:center;margin-top:8px;flex-wrap:wrap;gap:8px;}
-  .anchorbar .n{font-size:11px;color:var(--amber);}
-  .smallbtn{font-family:var(--mono);font-size:11px;padding:5px 10px;border-radius:2px;border:1px solid var(--line);background:transparent;color:var(--ink-dim);cursor:pointer;}
+  #waveWrap{margin-top:10px;display:none;}
+  canvas#wave{width:100%;height:72px;display:block;background:#080906;border:1px solid var(--line);border-radius:2px;cursor:crosshair;}
+  .wavehint{font-size:10px;color:var(--ink-dim);margin-top:6px;line-height:1.4;}
+  .anchorbar{display:flex;justify-content:space-between;align-items:center;margin-top:6px;flex-wrap:wrap;gap:6px;}
+  .anchorbar .n{font-size:10.5px;color:var(--amber);}
+  .smallbtn{font-family:var(--mono);font-size:10.5px;padding:4px 8px;border-radius:2px;border:1px solid var(--line);background:transparent;color:var(--ink-dim);cursor:pointer;}
   .smallbtn:hover{border-color:var(--red);color:var(--red);}
 
-  .transport{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:6px;}
+  .transport{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:4px;}
   .dot{width:8px;height:8px;border-radius:50%;background:var(--line);display:inline-block;}
   .dot.live{background:var(--phosphor);box-shadow:0 0 8px rgba(124,255,158,.7);}
   .dot.rec{background:var(--red);box-shadow:0 0 8px rgba(255,92,92,.7);animation:pulse 1s infinite;}
   @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
-  .statusline{font-size:11px;color:var(--ink-dim);}
+  .statusline{font-size:10.5px;color:var(--ink-dim);}
 
-  .row{margin-bottom:20px;}
+  #params{display:grid;grid-template-columns:repeat(3,1fr);gap:4px 20px;max-height:calc(100vh - 90px);overflow-y:auto;padding-right:6px;}
+  #params .row{grid-column:span 1;}
+  #params .row.wide{grid-column:1/-1;}
+  .row{margin-bottom:10px;}
   .row:last-child{margin-bottom:0;}
-  .row-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;}
-  .row-head label{font-size:12.5px;color:var(--ink);}
-  .row-head .val{font-size:12px;color:var(--phosphor);}
-  .row-note{font-size:10.5px;color:var(--ink-dim);margin-top:5px;line-height:1.5;}
-  .minmax{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
-  .minmax input{width:74px;min-width:0;flex:0 1 74px;}
-  .minmax span{font-size:11px;color:var(--ink-dim);white-space:nowrap;}
+  .row-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;}
+  .row-head label{font-size:11.5px;color:var(--ink);}
+  .row-head .val{font-size:11px;color:var(--phosphor);}
+  .row-note{font-size:9.5px;color:var(--ink-dim);margin-top:3px;line-height:1.35;}
+  .minmax{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+  .minmax input{width:64px;min-width:0;flex:0 1 64px;}
+  .minmax span{font-size:10px;color:var(--ink-dim);white-space:nowrap;}
 
   input[type=range]{-webkit-appearance:none;width:100%;height:2px;background:var(--line);outline:none;margin:0;}
   input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--phosphor);cursor:pointer;box-shadow:0 0 8px rgba(124,255,158,.5);}
@@ -78,8 +84,8 @@
     font-family:var(--mono);font-size:12.5px;padding:8px 10px;border-radius:2px;
   }
 
-  .btnrow{display:flex;gap:10px;margin-top:6px;flex-wrap:wrap;}
-  button{font-family:var(--mono);font-size:12.5px;padding:11px 18px;border-radius:2px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer;transition:border-color .15s ease, color .15s ease;}
+  .btnrow{display:flex;gap:8px;margin-top:2px;flex-wrap:wrap;grid-column:1/-1;}
+  button{font-family:var(--mono);font-size:11.5px;padding:8px 14px;border-radius:2px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer;transition:border-color .15s ease, color .15s ease;}
   button.primary{background:var(--phosphor);color:#0b0c0a;border-color:var(--phosphor);font-weight:600;}
   button.primary:hover{background:#93ffb2;}
   button.danger{border-color:var(--red);color:var(--red);}
@@ -87,14 +93,14 @@
   button:not(.primary):not(.danger):hover{border-color:var(--phosphor-dim);color:var(--phosphor);}
   button:disabled{opacity:.35;cursor:not-allowed;}
 
-  #status{font-size:11.5px;color:var(--amber);margin-top:12px;min-height:14px;}
+  #status{font-size:10.5px;color:var(--amber);margin-top:6px;min-height:14px;}
 
-  #recOutput{display:none;margin-top:14px;}
-  audio{width:100%;margin-top:6px;}
-  a.dl{display:inline-block;margin-top:14px;font-size:12.5px;color:var(--phosphor);text-decoration:none;border-bottom:1px solid var(--phosphor-dim);padding-bottom:1px;}
+  #recOutput{display:none;margin-top:8px;}
+  audio{width:100%;margin-top:4px;}
+  a.dl{display:inline-block;margin-top:8px;font-size:11.5px;color:var(--phosphor);text-decoration:none;border-bottom:1px solid var(--phosphor-dim);padding-bottom:1px;}
   a.dl:hover{color:#93ffb2;}
 
-  footer{margin-top:28px;font-size:10.5px;color:var(--ink-dim);line-height:1.7;}
+  footer{margin-top:10px;font-size:9.5px;color:var(--ink-dim);line-height:1.4;}
   input[type=number]::-webkit-outer-spin-button,
   input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
   input[type=number]{-moz-appearance:textfield;}
@@ -105,8 +111,6 @@
 
   <header>
     <p class="tag">MICROLOOP / LIVE</p>
-    <h1>スライダーが<span>その場で</span>音に反映される版</h1>
-    <p class="desc">AudioWorkletで常時再生しながら処理するリアルタイム版です。ファイルを書き出して確認する手順はなく、スライダーを動かすとすぐ音に出ます。良い瞬間が出たら録音でその場で捕まえられます。</p>
   </header>
 
   <section id="protocolWarning" style="display:none;border-color:var(--red);">
@@ -116,41 +120,60 @@
     </p>
   </section>
 
-  <section>
-    <div id="drop">
-      <div class="big">音声ファイルをドロップ、またはクリックして選択</div>
-      <div class="small">ブラウザが読める形式ならmp3/wav/m4a等おおむね対応</div>
-      <input type="file" id="fileInput" accept="audio/*">
-    </div>
-    <div id="fileMeta"></div>
-
-    <div id="waveWrap">
-      <canvas id="wave" width="1400" height="110"></canvas>
-      <div class="anchorbar">
-        <span class="n" id="anchorCount">アンカー: 0箇所(未クリック時は自動で1箇所設定)</span>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <input type="number" id="anchorRandCount" value="3" min="1" max="20" style="width:56px;padding:5px 6px;">
-          <button class="smallbtn" id="btnRandomAnchors">ランダム配置</button>
-          <button class="smallbtn" id="btnClearAnchors">クリア</button>
+  <div class="cols">
+    <div>
+      <section>
+        <div id="drop">
+          <div class="big">音声ファイルをドロップ、またはクリックして選択</div>
+          <div class="small">ブラウザが読める形式ならmp3/wav/m4a等おおむね対応</div>
+          <input type="file" id="fileInput" accept="audio/*">
         </div>
-      </div>
-      <p class="wavehint">波形をクリックして反復の元ネタにする場所を追加できます。再生中に変更しても、今の反復ゾーンが終わり次第すぐ反映されます。</p>
-    </div>
-  </section>
+        <div id="fileMeta"></div>
 
-  <section id="controls" style="display:none;">
-    <div class="transport">
-      <span class="dot" id="liveDot"></span>
-      <button class="primary" id="btnPlay">再生</button>
-      <button id="btnStop" disabled>停止</button>
-      <span style="flex:1"></span>
-      <span class="dot" id="recDot"></span>
-      <button id="btnRecord" disabled>録音開始</button>
-    </div>
-    <div class="statusline" id="status">ファイル読み込み待ち</div>
-  </section>
+        <div id="waveWrap">
+          <canvas id="wave" width="1400" height="110"></canvas>
+          <div class="anchorbar">
+            <span class="n" id="anchorCount">アンカー: 0箇所(未クリック時は自動で1箇所設定)</span>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <input type="number" id="anchorRandCount" value="5" min="1" max="20" style="width:56px;padding:5px 6px;">
+              <button class="smallbtn" id="btnRandomAnchors">ランダム配置</button>
+              <button class="smallbtn" id="btnClearAnchors">クリア</button>
+            </div>
+          </div>
+          <p class="wavehint">波形をクリックして反復の元ネタにする場所を追加できます。再生中に変更しても、今の反復ゾーンが終わり次第すぐ反映されます。</p>
+        </div>
+      </section>
 
-  <section id="params" style="display:none;">
+      <section id="controls" style="display:none;">
+        <div class="transport">
+          <span class="dot" id="liveDot"></span>
+          <button class="primary" id="btnPlay">再生</button>
+          <button id="btnStop" disabled>停止</button>
+          <span style="flex:1"></span>
+          <span class="dot" id="recDot"></span>
+          <button id="btnRecord" disabled>録音開始</button>
+        </div>
+        <div class="statusline" id="status">ファイル読み込み待ち</div>
+      </section>
+
+      <section id="recOutput">
+        <label style="font-size:12.5px;color:var(--ink);">録音した結果</label>
+        <audio id="player" controls></audio>
+        <div class="row" style="margin-top:14px;margin-bottom:0;">
+          <div class="row-head"><label>ファイル名</label></div>
+          <input type="text" id="filenameInput">
+        </div>
+        <div><a class="dl" id="dlLink">ダウンロード</a></div>
+      </section>
+    </div>
+
+    <section id="params" style="display:none;">
+    <div class="btnrow">
+      <button id="btnRandom">ランダム(即反映)</button>
+      <button id="btnFullGlitch">フルグリッチ(密度/不安定=100%)</button>
+      <button id="btnResetParams">標準に戻す</button>
+    </div>
+
     <div class="row">
       <div class="row-head"><label>ループ長の範囲</label></div>
       <div class="minmax">
@@ -159,7 +182,7 @@
       </div>
     </div>
 
-    <div class="row">
+    <div class="row wide">
       <div class="row-head"><label>ゾーンの長さの範囲</label></div>
       <div style="margin-bottom:8px;">
         <label style="margin-right:16px;"><input type="radio" name="zoneTimeMode" id="zoneModeMs" value="ms" checked> ミリ秒指定</label>
@@ -181,8 +204,17 @@
             <option value="0.125">1/32</option>
           </select>
         </div>
-        <div class="row-head"><label>グリッド内のゆらぎ</label><span class="val" id="valWobble">30%</span></div>
-        <input type="range" id="wobble" min="0" max="90" value="30">
+        <p class="row-note" style="margin-top:0;">たまに混ざる音符(複数選択可。基準音符以外から選ばれる):</p>
+        <div style="margin-bottom:8px;">
+          <label style="margin-right:12px;"><input type="checkbox" class="noteAlt" value="4"> 1/1</label>
+          <label style="margin-right:12px;"><input type="checkbox" class="noteAlt" value="2"> 1/2</label>
+          <label style="margin-right:12px;"><input type="checkbox" class="noteAlt" value="1"> 1/4</label>
+          <label style="margin-right:12px;"><input type="checkbox" class="noteAlt" value="0.5"> 1/8</label>
+          <label style="margin-right:12px;"><input type="checkbox" class="noteAlt" value="0.25" checked> 1/16</label>
+          <label><input type="checkbox" class="noteAlt" value="0.125"> 1/32</label>
+        </div>
+        <div class="row-head"><label>グリッドが飛ぶ確率</label><span class="val" id="valGridJump">15%</span></div>
+        <input type="range" id="gridJumpProb" min="0" max="100" value="15">
       </div>
       <p class="row-note">ここだけは、今のゾーンが終わった瞬間に次のゾーン長として反映されます(それ以外のツマミより反応が遅く感じることがあります)。</p>
     </div>
@@ -193,18 +225,13 @@
     </div>
 
     <div class="row">
-      <div class="row-head"><label>不安定さ(誤作動っぽさ)</label><span class="val" id="valInstability">100%</span></div>
+      <div class="row-head"><label>不安定さ/伝播(一括)</label><span class="val" id="valInstability">100%</span></div>
       <input type="range" id="instability" min="0" max="200" value="100">
     </div>
 
     <div class="row">
       <div class="row-head"><label>劣化(間引き/ビットクラッシュ)</label><span class="val" id="valCrush">30%</span></div>
       <input type="range" id="crush" min="0" max="100" value="30">
-    </div>
-
-    <div class="row">
-      <div class="row-head"><label>誤作動の伝播</label><span class="val" id="valBleed">100%</span></div>
-      <input type="range" id="bleed" min="0" max="100" value="100">
     </div>
 
     <div class="row">
@@ -222,34 +249,13 @@
       <input type="range" id="xfade" min="0" max="150" value="3">
     </div>
 
-    <div class="row">
-      <div class="row-head"><label>暴れの最大持続時間(離し忘れ対策の安全装置)</label></div>
-      <input type="number" id="chaosHoldSec" value="4" min="0.5" max="60" step="0.5"><span>秒</span>
-    </div>
-
-    <div class="row">
+    <div class="row wide">
       <div class="row-head"><label>暴れの系統(押している間だけON)</label></div>
-      <button id="btnChaosSpace" type="button">空間系</button>
       <button id="btnChaosPitch" type="button">ピッチ暴走系</button>
       <button id="btnChaosMisread" type="button">データ誤読系</button>
     </div>
-
-    <div class="btnrow">
-      <button id="btnRandom">ランダム(即反映)</button>
-      <button id="btnFullGlitch">フルグリッチ(密度/不安定=100%)</button>
-      <button id="btnResetParams">標準に戻す</button>
-    </div>
-  </section>
-
-  <section id="recOutput">
-    <label style="font-size:12.5px;color:var(--ink);">録音した結果</label>
-    <audio id="player" controls></audio>
-    <div class="row" style="margin-top:14px;margin-bottom:0;">
-      <div class="row-head"><label>ファイル名</label></div>
-      <input type="text" id="filenameInput">
-    </div>
-    <div><a class="dl" id="dlLink">ダウンロード</a></div>
-  </section>
+    </section>
+  </div>
 
   <footer>
     内部はモノラルもステレオに複製して常に2ch扱いで処理しています。反復・フィルター・クラッシュ・ステレオ幅は音声レンダースレッド(AudioWorklet)側で128サンプル単位に生成しており、パラメータの変更はほぼ即座に(ゾーン長・確率系のみ次のゾーン切り替わりのタイミングで)反映されます。録音はMediaRecorderで一旦webm/opusとして受け取り、停止時に自動でWAVへ変換しています。
@@ -292,8 +298,9 @@
   const zoneBpmControls=document.getElementById('zoneBpmControls');
   const bpmValEl=document.getElementById('bpmVal');
   const noteLenEl=document.getElementById('noteLen');
-  const wobbleEl=document.getElementById('wobble');
-  const valWobble=document.getElementById('valWobble');
+  const noteAltEls=Array.from(document.querySelectorAll('.noteAlt'));
+  const gridJumpProbEl=document.getElementById('gridJumpProb');
+  const valGridJump=document.getElementById('valGridJump');
   function syncZoneModeUI(){
     const bpmMode=zoneModeBpmEl.checked;
     zoneMsControls.style.display=bpmMode?'none':'flex';
@@ -305,29 +312,57 @@
   }));
   [bpmValEl,noteLenEl].forEach(el=>el.addEventListener('input',()=>{ pushParamsToWorklet(); }));
   [bpmValEl,noteLenEl].forEach(el=>el.addEventListener('wheel', e=>{ if(document.activeElement===el) e.preventDefault(); }, {passive:false}));
-  wobbleEl.addEventListener('input',()=>{
-    valWobble.textContent=wobbleEl.value+'%';
+  noteAltEls.forEach(el=>el.addEventListener('change',()=>{ pushParamsToWorklet(); }));
+  gridJumpProbEl.addEventListener('input',()=>{
+    valGridJump.textContent=gridJumpProbEl.value+'%';
     pushParamsToWorklet();
   });
   syncZoneModeUI();
-  [winMinEl,winMaxEl,zoneMinEl,zoneMaxEl].forEach(el=>{
+  function enableAbletonStyleNumberInput(el){
     el.addEventListener('wheel', e=>{ if(document.activeElement===el) e.preventDefault(); }, {passive:false});
-  });
+    el.addEventListener('focus', ()=>{ el.select(); });
+    el.style.cursor='ns-resize';
+    let dragging=false, startY=0, startVal=0, moved=false;
+    el.addEventListener('pointerdown', e=>{
+      dragging=true; moved=false;
+      startY=e.clientY;
+      startVal=parseFloat(el.value)||0;
+      try{ el.setPointerCapture(e.pointerId); }catch(err){}
+    });
+    el.addEventListener('pointermove', e=>{
+      if(!dragging) return;
+      const dy=startY-e.clientY;
+      if(Math.abs(dy)>3) moved=true;
+      if(!moved) return;
+      const step=parseFloat(el.step)||1;
+      const min=(el.min!==''&&el.min!=null)?parseFloat(el.min):-Infinity;
+      const max=(el.max!==''&&el.max!=null)?parseFloat(el.max):Infinity;
+      let nv=startVal+Math.round(dy/4)*step;
+      nv=Math.max(min,Math.min(max,nv));
+      el.value = Number.isInteger(step) ? Math.round(nv) : nv;
+      el.dispatchEvent(new Event('input',{bubbles:true}));
+    });
+    const endDrag=()=>{
+      if(!dragging) return;
+      dragging=false;
+      if(moved) el.blur();
+    };
+    el.addEventListener('pointerup', endDrag);
+    el.addEventListener('pointercancel', endDrag);
+    el.addEventListener('pointerleave', e=>{ if(dragging && e.buttons===0) endDrag(); });
+  }
+  Array.from(document.querySelectorAll('input[type=number]')).forEach(enableAbletonStyleNumberInput);
   const densityEl=document.getElementById('density');
   const instabilityEl=document.getElementById('instability');
   const crushEl=document.getElementById('crush');
-  const bleedEl=document.getElementById('bleed');
   const soberEl=document.getElementById('sober');
   const stereoEl=document.getElementById('stereo');
   const xfadeEl=document.getElementById('xfade');
-  const chaosHoldSecEl=document.getElementById('chaosHoldSec');
-  const btnChaosSpace=document.getElementById('btnChaosSpace');
   const btnChaosPitch=document.getElementById('btnChaosPitch');
   const btnChaosMisread=document.getElementById('btnChaosMisread');
   const valDensity=document.getElementById('valDensity');
   const valInstability=document.getElementById('valInstability');
   const valCrush=document.getElementById('valCrush');
-  const valBleed=document.getElementById('valBleed');
   const valSober=document.getElementById('valSober');
   const valStereo=document.getElementById('valStereo');
   const valXfade=document.getElementById('valXfade');
@@ -424,33 +459,24 @@
   });
 
   // ---------------- パラメータ ----------------
-  function computeZoneRangeMs(){
-    if(zoneModeBpmEl.checked){
-      const bpm=Math.max(20, parseFloat(bpmValEl.value)||120);
-      const noteFrac=parseFloat(noteLenEl.value)||1;
-      const quarterMs=60000/bpm;
-      const gridMs=quarterMs*noteFrac;
-      const wobble=(parseFloat(wobbleEl.value)||0)/100;
-      const lo=Math.max(5, gridMs*(1-wobble));
-      const hi=Math.max(lo+1, gridMs*(1+wobble));
-      return [lo, hi];
-    }
-    return [Math.max(5, parseFloat(zoneMinEl.value)||150), Math.max(5, parseFloat(zoneMaxEl.value)||1500)];
-  }
   function currentParams(){
-    const [zoneMinMs, zoneMaxMs]=computeZoneRangeMs();
     return {
       winMinMs: Math.max(0.5, parseFloat(winMinEl.value)||8),
       winMaxMs: Math.max(0.5, parseFloat(winMaxEl.value)||60),
-      zoneMinMs, zoneMaxMs,
+      zoneMinMs: Math.max(5, parseFloat(zoneMinEl.value)||150),
+      zoneMaxMs: Math.max(5, parseFloat(zoneMaxEl.value)||1500),
+      zoneBpmMode: zoneModeBpmEl.checked?1:0,
+      bpm: Math.max(20, parseFloat(bpmValEl.value)||120),
+      noteBase: parseFloat(noteLenEl.value)||1,
+      noteAlts: noteAltEls.filter(el=>el.checked).map(el=>parseFloat(el.value)),
+      gridJumpProb: parseFloat(gridJumpProbEl.value),
       density: parseFloat(densityEl.value),
       instability: parseFloat(instabilityEl.value),
       crush: parseFloat(crushEl.value),
-      bleed: parseFloat(bleedEl.value),
+      bleed: Math.min(100, parseFloat(instabilityEl.value)),
       sober: parseFloat(soberEl.value),
       stereo: parseFloat(stereoEl.value),
       xfadeMs: parseFloat(xfadeEl.value),
-      chaosSpace: chaosActive.space?1:0,
       chaosPitch: chaosActive.pitch?1:0,
       chaosMisread: chaosActive.misread?1:0
     };
@@ -464,19 +490,18 @@
     valDensity.textContent=densityEl.value+'%';
     valInstability.textContent=instabilityEl.value+'%';
     valCrush.textContent=crushEl.value+'%';
-    valBleed.textContent=bleedEl.value+'%';
     valSober.textContent=soberEl.value+'%';
     valStereo.textContent=stereoEl.value+'%';
     valXfade.textContent=xfadeEl.value+' ms';
-    valWobble.textContent=wobbleEl.value+'%';
+    valGridJump.textContent=gridJumpProbEl.value+'%';
   }
-  const allParamEls=[winMinEl,winMaxEl,zoneMinEl,zoneMaxEl,densityEl,instabilityEl,crushEl,bleedEl,soberEl,stereoEl,xfadeEl];
+  const allParamEls=[winMinEl,winMaxEl,zoneMinEl,zoneMaxEl,densityEl,instabilityEl,crushEl,soberEl,stereoEl,xfadeEl];
   allParamEls.forEach(el=>el.addEventListener('input',()=>{
     syncLabels();
     pushParamsToWorklet();
   }));
-  const chaosActive={space:false, pitch:false, misread:false};
-  const chaosTimers={space:null, pitch:null, misread:null};
+  const chaosActive={pitch:false, misread:false};
+  const chaosTimers={pitch:null, misread:null};
   function armChaosButton(btn, key){
     const start=(e)=>{
       e.preventDefault();
@@ -484,7 +509,7 @@
       chaosActive[key]=true;
       btn.classList.add('primary');
       pushParamsToWorklet();
-      const failsafeMs=Math.max(500, (parseFloat(chaosHoldSecEl.value)||4)*1000);
+      const failsafeMs=30000;
       clearTimeout(chaosTimers[key]);
       chaosTimers[key]=setTimeout(stop, failsafeMs);
     };
@@ -500,7 +525,6 @@
     btn.addEventListener('pointerleave', stop);
     btn.addEventListener('pointercancel', stop);
   }
-  armChaosButton(btnChaosSpace,'space');
   armChaosButton(btnChaosPitch,'pitch');
   armChaosButton(btnChaosMisread,'misread');
   syncLabels();
@@ -525,7 +549,6 @@
     densityEl.value=Math.round(10+Math.random()*80);
     instabilityEl.value=Math.round(Math.random()*100);
     crushEl.value=Math.round(Math.random()*80);
-    bleedEl.value=Math.round(Math.random()*90);
     soberEl.value=Math.round(Math.random()*40);
     stereoEl.value=Math.round(Math.random()*80);
     xfadeEl.value=Math.round(Math.random()*60);
@@ -546,17 +569,16 @@
     winMinEl.value=8; winMaxEl.value=60;
     zoneMinEl.value=150; zoneMaxEl.value=1500;
     zoneModeMsEl.checked=true; zoneModeBpmEl.checked=false;
-    bpmValEl.value=120; noteLenEl.value='1'; wobbleEl.value=30;
+    bpmValEl.value=120; noteLenEl.value='1'; gridJumpProbEl.value=15;
+    noteAltEls.forEach(el=>{ el.checked = (el.value==='0.25'); });
     syncZoneModeUI();
     densityEl.value=100; instabilityEl.value=100;
-    crushEl.value=30; bleedEl.value=100;
+    crushEl.value=30;
     soberEl.value=15; stereoEl.value=30; xfadeEl.value=3;
-    chaosHoldSecEl.value=4;
-    ['space','pitch','misread'].forEach(k=>{
+    ['pitch','misread'].forEach(k=>{
       chaosActive[k]=false;
       clearTimeout(chaosTimers[k]);
     });
-    btnChaosSpace.classList.remove('primary');
     btnChaosPitch.classList.remove('primary');
     btnChaosMisread.classList.remove('primary');
     syncLabels();
@@ -574,7 +596,7 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
     this.loaded=false;
     this.sr=sampleRate;
     this.anchors=[];
-    this.params={winMinMs:8,winMaxMs:60,zoneMinMs:150,zoneMaxMs:1500,density:100,instability:100,crush:30,bleed:100,sober:15,stereo:30,xfadeMs:3,chaosSpace:0,chaosPitch:0,chaosMisread:0};
+    this.params={winMinMs:8,winMaxMs:60,zoneMinMs:150,zoneMaxMs:1500,zoneBpmMode:0,bpm:120,noteBase:1,noteAlts:[],gridJumpProb:15,density:100,instability:100,crush:30,bleed:100,sober:15,stereo:30,xfadeMs:3,chaosPitch:0,chaosMisread:0};
     this.readCursor=0;
     this.seg=null;
     this.chanState=[{filterY:0,crushHeld:0,crushCounter:0},{filterY:0,crushHeld:0,crushCounter:0}];
@@ -617,10 +639,20 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
 
   startNewSegment(){
     const p=this.params;
-    const minZoneLen=Math.max(1,Math.round(p.zoneMinMs/1000*this.sr));
-    const maxZoneLen=Math.max(minZoneLen,Math.round(p.zoneMaxMs/1000*this.sr));
-    let zoneLen=Math.round(minZoneLen+Math.random()*(maxZoneLen-minZoneLen));
-    zoneLen=Math.max(1,zoneLen);
+    let zoneLen;
+    if(p.zoneBpmMode){
+      let noteFrac=p.noteBase;
+      if(p.noteAlts && p.noteAlts.length && Math.random()*100<p.gridJumpProb){
+        noteFrac=p.noteAlts[Math.floor(Math.random()*p.noteAlts.length)];
+      }
+      const quarterMs=60000/Math.max(20,p.bpm);
+      const gridMs=quarterMs*noteFrac;
+      zoneLen=Math.max(1, Math.round(gridMs/1000*this.sr));
+    } else {
+      const minZoneLen=Math.max(1,Math.round(p.zoneMinMs/1000*this.sr));
+      const maxZoneLen=Math.max(minZoneLen,Math.round(p.zoneMaxMs/1000*this.sr));
+      zoneLen=Math.max(1, Math.round(minZoneLen+Math.random()*(maxZoneLen-minZoneLen)));
+    }
     const sober=Math.random()*100<p.sober;
     const isLoop=Math.random()*100<p.density;
     if(isLoop){
@@ -630,22 +662,13 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
       const anchor=this.pickAnchor();
       const jitter=p.instability/100;
       this.seg={type:'loop', remaining:zoneLen, total:zoneLen, anchor, winLen, baseWinLen:winLen, tilePos:0,
-        reverseThis: Math.random()<jitter*0.3, sober, stereoMode:null, stereoFactor:0, pitchMult:1, misreadShift:0, hardInvert:false, hardSwap:false};
+        reverseThis: Math.random()<jitter*0.3, sober, stereoMode:null, stereoFactor:0, pitchMult:1, misreadShift:0};
       if(Math.random()*100<p.stereo){
         const amt=p.stereo/100;
         this.seg.stereoMode = Math.random()<0.5?'narrow':'wide';
         this.seg.stereoFactor = this.seg.stereoMode==='narrow'
           ? Math.max(0.02, 0.42-0.4*amt+Math.random()*0.04)
           : (1.1+amt*6+Math.random()*0.4);
-      }
-      if(p.chaosSpace){
-        const cAmt=1;
-        if(Math.random()<cAmt*0.6){
-          this.seg.stereoMode='wide';
-          this.seg.stereoFactor=1.1+cAmt*30+Math.random()*5;
-        }
-        this.seg.hardInvert = Math.random()<cAmt*0.4;
-        this.seg.hardSwap = Math.random()<cAmt*0.3;
       }
     } else {
       this.seg={type:'pass', remaining:zoneLen, total:zoneLen, sober};
@@ -787,8 +810,6 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
         out[0]=Math.max(-1,Math.min(1, mid+side));
         out[1]=Math.max(-1,Math.min(1, mid-side));
       }
-      if(seg.hardInvert) out[1]=-out[1];
-      if(seg.hardSwap){ const tmp=out[0]; out[0]=out[1]; out[1]=tmp; }
     }
 
     if(seg.blendRemaining>0 && this.hasHistory){
@@ -825,11 +846,24 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
       return true;
     }
     const tmp=[0,0];
-    for(let i=0;i<blockSize;i++){
-      this.processSample(tmp);
-      for(let ci=0;ci<output.length;ci++){
-        output[ci][i]=tmp[ci % 2];
+    try{
+      for(let i=0;i<blockSize;i++){
+        this.processSample(tmp);
+        for(let ci=0;ci<output.length;ci++){
+          output[ci][i]=Number.isFinite(tmp[ci % 2]) ? tmp[ci % 2] : 0;
+        }
       }
+    }catch(err){
+      // SafariでWorklet内部例外が起きた場合も、音声スレッド自体を落とさず
+      // 原音のパススルーに切り替えて、メインスレッドへ原因を通知する。
+      for(let i=0;i<blockSize;i++){
+        const idx=(this.readCursor+i)%this.srcLength;
+        for(let ci=0;ci<output.length;ci++){
+          output[ci][i]=this.channels[ci%2][idx] || 0;
+        }
+      }
+      this.readCursor=(this.readCursor+blockSize)%this.srcLength;
+      this.port.postMessage({type:'processorError', message:String(err && err.message || err)});
     }
     return true;
   }
@@ -850,6 +884,11 @@ registerProcessor('malfunction-processor', MalfunctionProcessor);
     workletNode = new AudioWorkletNode(audioCtx, 'malfunction-processor', {
       numberOfInputs:0, numberOfOutputs:1, outputChannelCount:[2]
     });
+    workletNode.port.onmessage=(e)=>{
+      if(e.data && e.data.type==='processorError'){
+        statusEl.textContent='Safari診断: Worklet内部で例外 → 原音パススルーに切替: '+e.data.message;
+      }
+    };
     workletReady=true;
   }
 
@@ -892,7 +931,7 @@ registerProcessor('malfunction-processor', MalfunctionProcessor);
         pushParamsToWorklet();
         pushAnchorsToWorklet();
         btnPlay.disabled=false;
-        statusEl.textContent='読み込み完了。再生できます。';
+        statusEl.textContent='読み込み完了。再生できます。 (Safari診断モード)';
       }catch(err){
         statusEl.textContent='AudioWorkletの準備に失敗しました: '+err.message;
       }
@@ -911,69 +950,10 @@ registerProcessor('malfunction-processor', MalfunctionProcessor);
     if(e.target.files.length) handleFile(e.target.files[0]);
   });
 
-  // ---------------- Safari / GitHub Pages 音声診断 ----------------
-  let diagnosticMode = 'worklet';
-  let directSourceNode = null;
-  let testOscNode = null;
-  const diag = document.createElement('div');
-  diag.style.cssText='margin:18px 0;padding:14px;border:1px solid #555;font:12px monospace;line-height:1.6;';
-  diag.innerHTML=`<div style="margin-bottom:8px;font-weight:600">AUDIO DIAGNOSTIC</div>
-    <div style="margin-bottom:10px;color:#aaa">Safari / GitHub Pages用。音源を読み込んだあと、下の順番で試してください。</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button type="button" id="diagDirect">① 元音源を直接再生</button>
-      <button type="button" id="diagWorklet">② AudioWorklet再生</button>
-      <button type="button" id="diagOsc">③ 440Hzテスト音</button>
-    </div>
-    <div id="diagResult" style="margin-top:10px;color:#ffcc66">診断結果：未実行</div>`;
-  const statusParent = statusEl.parentElement;
-  statusParent.insertBefore(diag, statusEl);
-  const diagResult=document.getElementById('diagResult');
-  function stopDiagnosticNodes(){
-    try{ if(directSourceNode){directSourceNode.stop();directSourceNode.disconnect();} }catch(e){}
-    try{ if(testOscNode){testOscNode.stop();testOscNode.disconnect();} }catch(e){}
-    directSourceNode=null; testOscNode=null;
-  }
-  async function runDiagnostic(mode){
-    if(!audioBuffer && mode!=='osc') { diagResult.textContent='診断結果：先に音声ファイルを読み込んでください。'; return; }
-    try{
-      audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)();
-      await audioCtx.resume();
-      stopDiagnosticNodes();
-      if(workletNode) { try{workletNode.disconnect();}catch(e){} }
-      if(mode==='direct'){
-        directSourceNode=audioCtx.createBufferSource();
-        directSourceNode.buffer=audioBuffer;
-        directSourceNode.connect(audioCtx.destination);
-        directSourceNode.start();
-        diagnosticMode='direct';
-        diagResult.textContent='① 元音源を直接再生中 → これが鳴ればAudioContextと出力先は正常。';
-      }else if(mode==='worklet'){
-        await ensureWorklet();
-        workletNode.connect(audioCtx.destination);
-        diagnosticMode='worklet';
-        diagResult.textContent='② AudioWorklet再生中 → これが無音ならWorklet経路を疑う。';
-      }else{
-        testOscNode=audioCtx.createOscillator();
-        testOscNode.frequency.value=440;
-        testOscNode.connect(audioCtx.destination);
-        testOscNode.start();
-        diagnosticMode='osc';
-        diagResult.textContent='③ 440Hzテスト音 → これが無音ならAudioContext / Safari側の問題を疑う。';
-      }
-    }catch(err){
-      diagResult.textContent='診断エラー：'+err.name+' / '+err.message;
-      console.error(err);
-    }
-  }
-  document.getElementById('diagDirect').addEventListener('click',()=>runDiagnostic('direct'));
-  document.getElementById('diagWorklet').addEventListener('click',()=>runDiagnostic('worklet'));
-  document.getElementById('diagOsc').addEventListener('click',()=>runDiagnostic('osc'));
-
   // ---------------- 再生/停止 ----------------
   btnPlay.addEventListener('click',async ()=>{
     await ensureWorklet();
     await audioCtx.resume();
-    stopDiagnosticNodes();
     workletNode.connect(audioCtx.destination);
     isPlaying=true;
     liveDot.classList.add('live');
@@ -984,7 +964,6 @@ registerProcessor('malfunction-processor', MalfunctionProcessor);
   });
   btnStop.addEventListener('click',()=>{
     if(workletNode) workletNode.disconnect();
-    stopDiagnosticNodes();
     isPlaying=false;
     liveDot.classList.remove('live');
     btnPlay.disabled=false;
