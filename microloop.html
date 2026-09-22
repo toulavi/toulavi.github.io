@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>16</title>
+<title>19</title>
 <style>
   :root{
     --bg: #0b0c0a;
@@ -93,6 +93,7 @@
   button:not(.primary):not(.danger):hover{border-color:var(--phosphor-dim);color:var(--phosphor);}
   button:disabled{opacity:.35;cursor:not-allowed;}
   .noteAlt{padding:5px 10px;font-size:10.5px;}
+  .modeBtn{padding:6px 12px;font-size:11px;margin-right:6px;}
 
   #status{font-size:10.5px;color:var(--amber);margin-top:6px;min-height:14px;}
 
@@ -130,6 +131,9 @@
           <input type="file" id="fileInput" accept="audio/*">
         </div>
         <div id="fileMeta"></div>
+        <div id="normalizeRow" style="display:none;margin-top:6px;">
+          <button class="smallbtn" id="btnNormalize">ノーマライズ</button>
+        </div>
 
         <div id="waveWrap">
           <canvas id="wave" width="1400" height="110"></canvas>
@@ -191,8 +195,8 @@
     <div class="row wide">
       <div class="row-head"><label>ゾーンの長さの範囲</label></div>
       <div style="margin-bottom:8px;">
-        <label style="margin-right:16px;"><input type="radio" name="zoneTimeMode" id="zoneModeMs" value="ms" checked> ミリ秒指定</label>
-        <label><input type="radio" name="zoneTimeMode" id="zoneModeBpm" value="bpm"> BPM指定</label>
+        <button type="button" class="modeBtn primary" id="zoneModeMs">ミリ秒指定</button>
+        <button type="button" class="modeBtn" id="zoneModeBpm">BPM指定</button>
       </div>
       <div class="minmax" id="zoneMsControls">
         <input type="number" id="zoneMin" value="150" min="10" step="10"><span>ms 〜</span>
@@ -280,6 +284,8 @@
   const dropEl=document.getElementById('drop');
   const fileInput=document.getElementById('fileInput');
   const fileMeta=document.getElementById('fileMeta');
+  const normalizeRow=document.getElementById('normalizeRow');
+  const btnNormalize=document.getElementById('btnNormalize');
   const waveWrap=document.getElementById('waveWrap');
   const waveCanvas=document.getElementById('wave');
   const anchorCountEl=document.getElementById('anchorCount');
@@ -310,11 +316,13 @@
   const gridJumpProbEl=document.getElementById('gridJumpProb');
   const valGridJump=document.getElementById('valGridJump');
   function syncZoneModeUI(){
-    const bpmMode=zoneModeBpmEl.checked;
+    const bpmMode=zoneModeBpmEl.classList.contains('primary');
     zoneMsControls.style.display=bpmMode?'none':'flex';
     zoneBpmControls.style.display=bpmMode?'block':'none';
   }
-  [zoneModeMsEl,zoneModeBpmEl].forEach(el=>el.addEventListener('change',()=>{
+  [zoneModeMsEl,zoneModeBpmEl].forEach(el=>el.addEventListener('click',()=>{
+    zoneModeMsEl.classList.toggle('primary', el===zoneModeMsEl);
+    zoneModeBpmEl.classList.toggle('primary', el===zoneModeBpmEl);
     syncZoneModeUI();
     pushParamsToWorklet();
   }));
@@ -406,6 +414,11 @@
   let mediaRecorder=null;
   let recChunks=[];
   let recDest=null;
+  let decodeCtx=null;
+  async function decodeAudioDataSafely(arrayBuffer){
+    decodeCtx = decodeCtx || new (window.AudioContext||window.webkitAudioContext)();
+    return await decodeCtx.decodeAudioData(arrayBuffer);
+  }
 
   // ---------------- 波形描画・アンカー ----------------
   function drawWave(){
@@ -481,6 +494,30 @@
     pushAnchorsToWorklet();
   });
 
+  btnNormalize.addEventListener('click',()=>{
+    if(!audioBuffer) return;
+    const ch0=audioBuffer.getChannelData(0);
+    const ch1=audioBuffer.numberOfChannels>1 ? audioBuffer.getChannelData(1) : ch0;
+    let peak=0;
+    for(let i=0;i<ch0.length;i++){ const a=Math.abs(ch0[i]); if(a>peak) peak=a; }
+    if(ch1!==ch0){
+      for(let i=0;i<ch1.length;i++){ const a=Math.abs(ch1[i]); if(a>peak) peak=a; }
+    }
+    if(peak<1e-6){
+      statusEl.textContent='無音に近いためノーマライズをスキップしました。';
+      return;
+    }
+    const target=0.98;
+    const gain=target/peak;
+    for(let i=0;i<ch0.length;i++) ch0[i]*=gain;
+    if(ch1!==ch0){ for(let i=0;i<ch1.length;i++) ch1[i]*=gain; }
+    drawWave();
+    if(workletNode){
+      workletNode.port.postMessage({type:'updateChannels', channels:[ch0, ch1]});
+    }
+    statusEl.textContent='ノーマライズしました(ピーク基準、倍率 x'+gain.toFixed(2)+')。';
+  });
+
   // ---------------- パラメータ ----------------
   function currentParams(){
     return {
@@ -488,7 +525,7 @@
       winMaxMs: Math.max(0.5, parseFloat(winMaxEl.value)||60),
       zoneMinMs: Math.max(5, parseFloat(zoneMinEl.value)||150),
       zoneMaxMs: Math.max(5, parseFloat(zoneMaxEl.value)||1500),
-      zoneBpmMode: zoneModeBpmEl.checked?1:0,
+      zoneBpmMode: zoneModeBpmEl.classList.contains('primary')?1:0,
       bpm: Math.max(20, parseFloat(bpmValEl.value)||120),
       noteBase: parseFloat(noteLenEl.value)||1,
       noteAlts: noteAltEls.filter(el=>el.classList.contains('primary')).map(el=>parseFloat(el.dataset.value)),
@@ -613,7 +650,7 @@
   btnResetParams.addEventListener('click',()=>{
     winMinEl.value=8; winMaxEl.value=60;
     zoneMinEl.value=150; zoneMaxEl.value=1500;
-    zoneModeMsEl.checked=true; zoneModeBpmEl.checked=false;
+    zoneModeMsEl.classList.add('primary'); zoneModeBpmEl.classList.remove('primary');
     bpmValEl.value=120; noteLenEl.value='1'; gridJumpProbEl.value=15;
     noteAltEls.forEach(el=>{ el.classList.toggle('primary', el.dataset.value==='0.25'); });
     syncZoneModeUI();
@@ -679,6 +716,13 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
         this.globalRate=Math.pow(2, (this.params.transposeSemi||0)/12);
       } else if(d.type==='anchors'){
         this.anchors=d.anchors||[];
+      } else if(d.type==='updateChannels'){
+        const nch0=new Float32Array(d.channels[0]);
+        const nch1=d.channels.length>1?new Float32Array(d.channels[1]):nch0;
+        if(nch0.length===this.srcLength){
+          this.channels=[nch0,nch1];
+          this.channelViews=[new DataView(nch0.buffer), new DataView(nch1.buffer)];
+        }
       }
     };
   }
@@ -952,8 +996,7 @@ registerProcessor('malfunction-processor', MalfunctionProcessor);
     reader.onload=async function(e){
       let buf;
       try{
-        audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)();
-        buf=await audioCtx.decodeAudioData(e.target.result.slice(0));
+        buf=await decodeAudioDataSafely(e.target.result.slice(0));
       }catch(err){
         statusEl.textContent='音声のデコードに失敗しました('+file.type+'): '+err.message;
         return;
@@ -964,6 +1007,7 @@ registerProcessor('malfunction-processor', MalfunctionProcessor);
       const kb=(file.size/1024).toFixed(1);
       fileMeta.style.display='block';
       fileMeta.textContent=`${file.name}  —  ${kb} KB  —  ${buf.duration.toFixed(2)}秒 / ${buf.sampleRate}Hz / ${buf.numberOfChannels}ch`;
+      normalizeRow.style.display='block';
       const baseName=file.name.replace(/\.[^.]+$/,'');
       originalFileName=baseName+'_microloop-live';
       filenameInput.value=originalFileName+'.wav';
@@ -974,6 +1018,7 @@ registerProcessor('malfunction-processor', MalfunctionProcessor);
       drawWave();
 
       try{
+        audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)();
         if(!window.AudioWorkletNode || !audioCtx.audioWorklet){
           throw new Error('このブラウザはAudioWorkletに対応していません。最新のChrome/Edge/Firefox/Safariで開いてください。');
         }
@@ -1074,22 +1119,27 @@ registerProcessor('malfunction-processor', MalfunctionProcessor);
     if(dlLink.href) dlLink.download=sanitizeFilename(filenameInput.value);
   });
 
+  let lastRecUrl=null;
   btnRecord.addEventListener('click',()=>{
     if(!isPlaying) return;
     if(!mediaRecorder || mediaRecorder.state==='inactive'){
-      recDest = audioCtx.createMediaStreamDestination();
-      workletNode.connect(recDest);
-      recChunks=[];
-      mediaRecorder=new MediaRecorder(recDest.stream);
-      mediaRecorder.ondataavailable=(e)=>{ if(e.data.size>0) recChunks.push(e.data); };
+      const thisRecDest = audioCtx.createMediaStreamDestination();
+      recDest = thisRecDest;
+      workletNode.connect(thisRecDest);
+      const thisChunks=[];
+      recChunks=thisChunks;
+      mediaRecorder=new MediaRecorder(thisRecDest.stream);
+      mediaRecorder.ondataavailable=(e)=>{ if(e.data.size>0) thisChunks.push(e.data); };
       mediaRecorder.onstop=async ()=>{
         statusEl.textContent='WAVに変換中…';
-        const webmBlob=new Blob(recChunks, {type:'audio/webm'});
+        const webmBlob=new Blob(thisChunks, {type:'audio/webm'});
         try{
           const arrBuf=await webmBlob.arrayBuffer();
-          const decoded=await audioCtx.decodeAudioData(arrBuf);
+          const decoded=await decodeAudioDataSafely(arrBuf);
           const wavBlob=bufferToWav(decoded);
           const url=URL.createObjectURL(wavBlob);
+          if(lastRecUrl) URL.revokeObjectURL(lastRecUrl);
+          lastRecUrl=url;
           player.src=url;
           dlLink.href=url;
           dlLink.download=sanitizeFilename(filenameInput.value);
@@ -1098,6 +1148,8 @@ registerProcessor('malfunction-processor', MalfunctionProcessor);
         }catch(err){
           // 変換に失敗した場合はwebmのまま渡す(何もないよりはまし)
           const url=URL.createObjectURL(webmBlob);
+          if(lastRecUrl) URL.revokeObjectURL(lastRecUrl);
+          lastRecUrl=url;
           player.src=url;
           dlLink.href=url;
           dlLink.download=sanitizeFilename(filenameInput.value).replace(/\.wav$/i,'.webm');
@@ -1106,7 +1158,7 @@ registerProcessor('malfunction-processor', MalfunctionProcessor);
         }
         recDot.classList.remove('rec');
         btnRecord.textContent='録音開始';
-        try{ workletNode.disconnect(recDest); }catch(e){}
+        try{ workletNode.disconnect(thisRecDest); }catch(e){}
       };
       mediaRecorder.start();
       recDot.classList.add('rec');
