@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>1</title>
+<title>3</title>
 <style>
   :root{
     --bg:#0b0c0a; --bg-raised:#111310; --line:#242720;
@@ -93,20 +93,34 @@
       <input type="range" id="chaos" min="0" max="100" value="45">
     </div>
     <div class="row">
-      <div class="row-head"><label>テンポ(基本更新間隔)</label><span class="val" id="valTempo">40 ms</span></div>
-      <input type="range" id="tempo" min="4" max="300" value="40">
+      <div class="row-head"><label>テンポ(基本更新間隔)</label></div>
+      <div class="minmax">
+        <input type="number" id="tempo" value="40" min="4" max="300" step="1"><span>ms</span>
+      </div>
     </div>
     <div class="row">
-      <div class="row-head"><label>音域(中心の高さ)</label><span class="val" id="valRegister">220 Hz</span></div>
-      <input type="range" id="register" min="40" max="2000" value="220">
+      <div class="row-head"><label>音域(中心の高さ)</label></div>
+      <div class="minmax">
+        <input type="number" id="register" value="220" min="40" max="2000" step="1"><span>Hz</span>
+      </div>
     </div>
     <div class="row">
-      <div class="row-head"><label>密度(同時に動くオシレーター数上限)</label><span class="val" id="valDensity">12</span></div>
-      <input type="range" id="density" min="1" max="32" value="12">
+      <div class="row-head"><label>密度(同時に動くオシレーター数上限)</label></div>
+      <div class="minmax">
+        <input type="number" id="density" value="12" min="1" max="32" step="1"><span>個</span>
+      </div>
     </div>
     <div class="row">
       <div class="row-head"><label>左右のねじれ</label><span class="val" id="valTwist">35%</span></div>
       <input type="range" id="twist" min="0" max="100" value="35">
+    </div>
+    <div class="row">
+      <div class="row-head"><label>自動Reseed</label></div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <button type="button" id="btnAutoReseed">自動Reseed: OFF</button>
+        <input type="number" id="autoReseedSec" value="8" min="1" max="120" step="1">
+        <span style="font-size:11px;color:var(--ink-dim);">秒ごと</span>
+      </div>
     </div>
   </section>
 
@@ -135,16 +149,57 @@
   const densityEl=document.getElementById('density');
   const twistEl=document.getElementById('twist');
   const valChaos=document.getElementById('valChaos');
-  const valTempo=document.getElementById('valTempo');
-  const valRegister=document.getElementById('valRegister');
-  const valDensity=document.getElementById('valDensity');
   const valTwist=document.getElementById('valTwist');
+  const btnAutoReseed=document.getElementById('btnAutoReseed');
+  const autoReseedSecEl=document.getElementById('autoReseedSec');
+  let autoReseedOn=false;
+  btnAutoReseed.addEventListener('click',()=>{
+    autoReseedOn=!autoReseedOn;
+    btnAutoReseed.textContent='自動Reseed: '+(autoReseedOn?'ON':'OFF');
+    btnAutoReseed.classList.toggle('primary', autoReseedOn);
+    pushParams();
+  });
+  function enableAbletonStyleNumberInput(el){
+    el.addEventListener('wheel', e=>{ if(document.activeElement===el) e.preventDefault(); }, {passive:false});
+    el.style.cursor='ns-resize';
+    let dragging=false, startY=0, startVal=0, moved=false;
+    el.addEventListener('pointerdown', e=>{
+      dragging=true; moved=false;
+      startY=e.clientY;
+      startVal=parseFloat(el.value)||0;
+      try{ el.setPointerCapture(e.pointerId); }catch(err){}
+    });
+    el.addEventListener('pointermove', e=>{
+      if(!dragging) return;
+      const dy=startY-e.clientY;
+      if(Math.abs(dy)>3) moved=true;
+      if(!moved) return;
+      const step=parseFloat(el.step)||1;
+      const min=(el.min!==''&&el.min!=null)?parseFloat(el.min):-Infinity;
+      const max=(el.max!==''&&el.max!=null)?parseFloat(el.max):Infinity;
+      let nv=startVal+Math.round(dy/4)*step;
+      nv=Math.max(min,Math.min(max,nv));
+      el.value = Number.isInteger(step) ? Math.round(nv) : nv;
+      el.dispatchEvent(new Event('input',{bubbles:true}));
+    });
+    const endDrag=()=>{
+      if(!dragging) return;
+      dragging=false;
+      if(moved) el.blur();
+    };
+    el.addEventListener('pointerup', endDrag);
+    el.addEventListener('pointercancel', endDrag);
+    el.addEventListener('pointerleave', e=>{ if(dragging && e.buttons===0) endDrag(); });
+    el.addEventListener('click', ()=>{
+      if(!moved) requestAnimationFrame(()=>{ el.focus(); el.select(); });
+    });
+  }
+  enableAbletonStyleNumberInput(autoReseedSecEl);
+  autoReseedSecEl.addEventListener('input', ()=>{ pushParams(); });
+  [tempoEl,registerEl,densityEl].forEach(enableAbletonStyleNumberInput);
 
   function syncLabels(){
     valChaos.textContent=chaosEl.value+'%';
-    valTempo.textContent=tempoEl.value+' ms';
-    valRegister.textContent=registerEl.value+' Hz';
-    valDensity.textContent=densityEl.value;
     valTwist.textContent=twistEl.value+'%';
   }
   function currentParams(){
@@ -153,7 +208,9 @@
       tempoMs: parseFloat(tempoEl.value),
       registerHz: parseFloat(registerEl.value),
       density: parseInt(densityEl.value),
-      twist: parseFloat(twistEl.value)
+      twist: parseFloat(twistEl.value),
+      autoReseedOn: autoReseedOn?1:0,
+      autoReseedSec: parseFloat(autoReseedSecEl.value)||8
     };
   }
   function pushParams(){
@@ -207,7 +264,7 @@
 class EklipseProcessor extends AudioWorkletProcessor {
   constructor(){
     super();
-    this.params={chaos:45,tempoMs:40,registerHz:220,density:12,twist:35};
+    this.params={chaos:45,tempoMs:40,registerHz:220,density:12,twist:35,autoReseedOn:0,autoReseedSec:8};
     this.N=32;
     this.freq=new Float32Array(this.N);
     this.amp=new Float32Array(this.N);
@@ -216,10 +273,24 @@ class EklipseProcessor extends AudioWorkletProcessor {
     this.gateOpen=true;
     this.samplesUntilTick=0;
     this.leftPhase=0;
+    this.lastD3=0.5;
+    this.lastD4=0.3;
+    this.autoReseedCounter=Infinity;
     this.reseed();
     this.port.onmessage=(e)=>{
       const d=e.data;
-      if(d.type==='params') Object.assign(this.params, d.params);
+      if(d.type==='params'){
+        const prevOn=this.params.autoReseedOn;
+        const prevSec=this.params.autoReseedSec;
+        Object.assign(this.params, d.params);
+        const turnedOn = (!prevOn && this.params.autoReseedOn);
+        const secChanged = (this.params.autoReseedSec !== prevSec);
+        if(this.params.autoReseedOn && (turnedOn || secChanged)){
+          this.autoReseedCounter=Math.max(1, Math.round((this.params.autoReseedSec||8)*sampleRate));
+        } else if(!this.params.autoReseedOn){
+          this.autoReseedCounter=Infinity;
+        }
+      }
       else if(d.type==='reseed') this.reseed();
     };
   }
@@ -231,6 +302,7 @@ class EklipseProcessor extends AudioWorkletProcessor {
       this.phase[i]=Math.random();
     }
     this.d1.v=Math.random(); this.d2.v=Math.random(); this.d3.v=Math.random(); this.d4.v=Math.random();
+    this.lastD3=this.d3.v; this.lastD4=this.d4.v;
     this.samplesUntilTick=0;
   }
   walk(state, step, lo, hi){
@@ -280,12 +352,22 @@ class EklipseProcessor extends AudioWorkletProcessor {
     const baseTicks=Math.max(1, Math.round((p.tempoMs||40)/1000*sampleRate));
     const rateMod=0.25+d2v*1.8;
     this.samplesUntilTick=Math.max(1, Math.round(baseTicks*rateMod));
+
+    this.lastD3=d3v;
+    this.lastD4=d4v;
   }
   process(inputs, outputs){
     const output=outputs[0];
     const blockSize=output[0] ? output[0].length : 128;
     const twist=(this.params.twist||0)/100;
     for(let i=0;i<blockSize;i++){
+      if(this.params.autoReseedOn){
+        this.autoReseedCounter--;
+        if(this.autoReseedCounter<=0){
+          this.reseed();
+          this.autoReseedCounter=Math.max(1, Math.round((this.params.autoReseedSec||8)*sampleRate));
+        }
+      }
       if(this.samplesUntilTick<=0) this.tick();
       this.samplesUntilTick--;
 
@@ -297,11 +379,12 @@ class EklipseProcessor extends AudioWorkletProcessor {
       }
       const right=Math.tanh(raw*1.3);
 
-      const leftFreq=(this.params.registerHz||220)*0.5;
+      const leftFreq=(this.params.registerHz||220)*0.5*Math.pow(2,(this.lastD3-0.5)*2);
       this.leftPhase+=leftFreq/sampleRate;
       if(this.leftPhase>=1) this.leftPhase-=Math.floor(this.leftPhase);
       const modAmount=raw*twist*1.8;
-      const left=Math.sin(2*Math.PI*(this.leftPhase+modAmount))*0.7;
+      const leftAmpMod=0.15+this.lastD4*0.6;
+      const left=Math.sin(2*Math.PI*(this.leftPhase+modAmount))*leftAmpMod;
 
       if(output[0]) output[0][i]=left;
       if(output[1]) output[1][i]=right;
