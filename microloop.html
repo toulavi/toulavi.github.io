@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>14</title>
+<title>MICROLOOP LIVE — リアルタイム誤作動グリッチ</title>
 <style>
   :root{
     --bg: #0b0c0a;
@@ -85,13 +85,14 @@
   }
 
   .btnrow{display:flex;gap:8px;margin-top:2px;flex-wrap:wrap;grid-column:1/-1;}
-  button{font-family:var(--mono);font-size:11.5px;padding:8px 14px;border-radius:2px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer;transition:border-color .15s ease, color .15s ease;}
+  button{font-family:var(--mono);font-size:11.5px;padding:8px 14px;border-radius:2px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer;transition:border-color .15s ease, color .15s ease;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:none;}
   button.primary{background:var(--phosphor);color:#0b0c0a;border-color:var(--phosphor);font-weight:600;}
   button.primary:hover{background:#93ffb2;}
   button.danger{border-color:var(--red);color:var(--red);}
   button.danger:hover{background:var(--red);color:#0b0c0a;}
   button:not(.primary):not(.danger):hover{border-color:var(--phosphor-dim);color:var(--phosphor);}
   button:disabled{opacity:.35;cursor:not-allowed;}
+  .noteAlt{padding:5px 10px;font-size:10.5px;}
 
   #status{font-size:10.5px;color:var(--amber);margin-top:6px;min-height:14px;}
 
@@ -175,6 +176,11 @@
     </div>
 
     <div class="row">
+      <div class="row-head"><label>元素材の再生速度(トランスポーズ)</label><span class="val" id="valTranspose">±0 半音</span></div>
+      <input type="range" id="transpose" min="-24" max="24" value="0" step="1">
+    </div>
+
+    <div class="row">
       <div class="row-head"><label>ループ長の範囲</label></div>
       <div class="minmax">
         <input type="number" id="winMin" value="8" min="1" step="1"><span>ms 〜</span>
@@ -205,13 +211,13 @@
           </select>
         </div>
         <p class="row-note" style="margin-top:0;">たまに混ざる音符(複数選択可。基準音符以外から選ばれる):</p>
-        <div style="margin-bottom:8px;">
-          <label style="margin-right:12px;"><input type="checkbox" class="noteAlt" value="4"> 1/1</label>
-          <label style="margin-right:12px;"><input type="checkbox" class="noteAlt" value="2"> 1/2</label>
-          <label style="margin-right:12px;"><input type="checkbox" class="noteAlt" value="1"> 1/4</label>
-          <label style="margin-right:12px;"><input type="checkbox" class="noteAlt" value="0.5"> 1/8</label>
-          <label style="margin-right:12px;"><input type="checkbox" class="noteAlt" value="0.25" checked> 1/16</label>
-          <label><input type="checkbox" class="noteAlt" value="0.125"> 1/32</label>
+        <div style="margin-bottom:8px;display:flex;gap:6px;flex-wrap:wrap;">
+          <button type="button" class="noteAlt" data-value="4">1/1</button>
+          <button type="button" class="noteAlt" data-value="2">1/2</button>
+          <button type="button" class="noteAlt" data-value="1">1/4</button>
+          <button type="button" class="noteAlt" data-value="0.5">1/8</button>
+          <button type="button" class="noteAlt primary" data-value="0.25">1/16</button>
+          <button type="button" class="noteAlt" data-value="0.125">1/32</button>
         </div>
         <div class="row-head"><label>グリッドが飛ぶ確率</label><span class="val" id="valGridJump">15%</span></div>
         <input type="range" id="gridJumpProb" min="0" max="100" value="15">
@@ -250,7 +256,8 @@
     </div>
 
     <div class="row wide">
-      <div class="row-head"><label>暴れの系統(押している間だけON)</label></div>
+      <div class="row-head"><label>暴れの系統(押している間だけON。ホールド固定がONの時は押すたびON/OFF切替)</label></div>
+      <button id="btnHoldLock" type="button">ホールド固定</button>
       <button id="btnChaosPitch" type="button">ピッチ暴走系</button>
       <button id="btnChaosMisread" type="button">データ誤読系</button>
       <button id="btnChaosDry" type="button">元音源に戻す(押している間)</button>
@@ -313,7 +320,10 @@
   }));
   [bpmValEl,noteLenEl].forEach(el=>el.addEventListener('input',()=>{ pushParamsToWorklet(); }));
   [bpmValEl,noteLenEl].forEach(el=>el.addEventListener('wheel', e=>{ if(document.activeElement===el) e.preventDefault(); }, {passive:false}));
-  noteAltEls.forEach(el=>el.addEventListener('change',()=>{ pushParamsToWorklet(); }));
+  noteAltEls.forEach(el=>el.addEventListener('click',()=>{
+    el.classList.toggle('primary');
+    pushParamsToWorklet();
+  }));
   gridJumpProbEl.addEventListener('input',()=>{
     valGridJump.textContent=gridJumpProbEl.value+'%';
     pushParamsToWorklet();
@@ -321,7 +331,6 @@
   syncZoneModeUI();
   function enableAbletonStyleNumberInput(el){
     el.addEventListener('wheel', e=>{ if(document.activeElement===el) e.preventDefault(); }, {passive:false});
-    el.addEventListener('focus', ()=>{ el.select(); });
     el.style.cursor='ns-resize';
     let dragging=false, startY=0, startVal=0, moved=false;
     el.addEventListener('pointerdown', e=>{
@@ -351,6 +360,11 @@
     el.addEventListener('pointerup', endDrag);
     el.addEventListener('pointercancel', endDrag);
     el.addEventListener('pointerleave', e=>{ if(dragging && e.buttons===0) endDrag(); });
+    el.addEventListener('click', ()=>{
+      if(!moved){
+        requestAnimationFrame(()=>{ el.focus(); el.select(); });
+      }
+    });
   }
   Array.from(document.querySelectorAll('input[type=number]')).forEach(enableAbletonStyleNumberInput);
   const densityEl=document.getElementById('density');
@@ -368,6 +382,13 @@
   const valSober=document.getElementById('valSober');
   const valStereo=document.getElementById('valStereo');
   const valXfade=document.getElementById('valXfade');
+  const transposeEl=document.getElementById('transpose');
+  const valTranspose=document.getElementById('valTranspose');
+  transposeEl.addEventListener('input',()=>{
+    const v=parseFloat(transposeEl.value);
+    valTranspose.textContent=(v>0?'+':(v<0?'':'±'))+v+' 半音';
+    pushParamsToWorklet();
+  });
   const btnRandom=document.getElementById('btnRandom');
 
   const recOutput=document.getElementById('recOutput');
@@ -470,7 +491,7 @@
       zoneBpmMode: zoneModeBpmEl.checked?1:0,
       bpm: Math.max(20, parseFloat(bpmValEl.value)||120),
       noteBase: parseFloat(noteLenEl.value)||1,
-      noteAlts: noteAltEls.filter(el=>el.checked).map(el=>parseFloat(el.value)),
+      noteAlts: noteAltEls.filter(el=>el.classList.contains('primary')).map(el=>parseFloat(el.dataset.value)),
       gridJumpProb: parseFloat(gridJumpProbEl.value),
       density: parseFloat(densityEl.value),
       instability: parseFloat(instabilityEl.value),
@@ -481,7 +502,8 @@
       xfadeMs: parseFloat(xfadeEl.value),
       chaosPitch: chaosActive.pitch?1:0,
       chaosMisread: chaosActive.misread?1:0,
-      chaosDry: chaosActive.dry?1:0
+      chaosDry: chaosActive.dry?1:0,
+      transposeSemi: parseFloat(transposeEl.value)||0
     };
   }
 
@@ -505,9 +527,19 @@
   }));
   const chaosActive={pitch:false, misread:false, dry:false};
   const chaosTimers={pitch:null, misread:null, dry:null};
+  const chaosStopFns=[];
+  let holdLockMode=false;
   function armChaosButton(btn, key){
     const start=(e)=>{
       e.preventDefault();
+      if(holdLockMode){
+        if(chaosActive[key]){ stop(); } else {
+          chaosActive[key]=true;
+          btn.classList.add('primary');
+          pushParamsToWorklet();
+        }
+        return;
+      }
       if(chaosActive[key]) return;
       chaosActive[key]=true;
       btn.classList.add('primary');
@@ -523,11 +555,20 @@
       pushParamsToWorklet();
       clearTimeout(chaosTimers[key]);
     };
+    chaosStopFns.push(stop);
     btn.addEventListener('pointerdown', start);
-    btn.addEventListener('pointerup', stop);
-    btn.addEventListener('pointerleave', stop);
-    btn.addEventListener('pointercancel', stop);
+    btn.addEventListener('pointerup', e=>{ if(!holdLockMode) stop(); });
+    btn.addEventListener('pointerleave', e=>{ if(!holdLockMode) stop(); });
+    btn.addEventListener('pointercancel', e=>{ if(!holdLockMode) stop(); });
   }
+  const btnHoldLock=document.getElementById('btnHoldLock');
+  btnHoldLock.addEventListener('click', ()=>{
+    holdLockMode=!holdLockMode;
+    btnHoldLock.classList.toggle('primary', holdLockMode);
+    if(!holdLockMode){
+      chaosStopFns.forEach(fn=>fn());
+    }
+  });
   armChaosButton(btnChaosPitch,'pitch');
   armChaosButton(btnChaosMisread,'misread');
   armChaosButton(btnChaosDry,'dry');
@@ -574,15 +615,18 @@
     zoneMinEl.value=150; zoneMaxEl.value=1500;
     zoneModeMsEl.checked=true; zoneModeBpmEl.checked=false;
     bpmValEl.value=120; noteLenEl.value='1'; gridJumpProbEl.value=15;
-    noteAltEls.forEach(el=>{ el.checked = (el.value==='0.25'); });
+    noteAltEls.forEach(el=>{ el.classList.toggle('primary', el.dataset.value==='0.25'); });
     syncZoneModeUI();
     densityEl.value=100; instabilityEl.value=100;
     crushEl.value=30;
     soberEl.value=15; stereoEl.value=30; xfadeEl.value=3;
+    transposeEl.value=0; valTranspose.textContent='±0 半音';
     ['pitch','misread','dry'].forEach(k=>{
       chaosActive[k]=false;
       clearTimeout(chaosTimers[k]);
     });
+    holdLockMode=false;
+    btnHoldLock.classList.remove('primary');
     btnChaosPitch.classList.remove('primary');
     btnChaosMisread.classList.remove('primary');
     btnChaosDry.classList.remove('primary');
@@ -601,7 +645,8 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
     this.loaded=false;
     this.sr=sampleRate;
     this.anchors=[];
-    this.params={winMinMs:8,winMaxMs:60,zoneMinMs:150,zoneMaxMs:1500,zoneBpmMode:0,bpm:120,noteBase:1,noteAlts:[],gridJumpProb:15,density:100,instability:100,crush:30,bleed:100,sober:15,stereo:30,xfadeMs:3,chaosPitch:0,chaosMisread:0,chaosDry:0};
+    this.params={winMinMs:8,winMaxMs:60,zoneMinMs:150,zoneMaxMs:1500,zoneBpmMode:0,bpm:120,noteBase:1,noteAlts:[],gridJumpProb:15,density:100,instability:100,crush:30,bleed:100,sober:15,stereo:30,xfadeMs:3,chaosPitch:0,chaosMisread:0,chaosDry:0,transposeSemi:0};
+    this.globalRate=1;
     this.readCursor=0;
     this.seg=null;
     this.chanState=[{filterY:0,crushHeld:0,crushCounter:0},{filterY:0,crushHeld:0,crushCounter:0}];
@@ -631,6 +676,7 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
         this.loaded=this.srcLength>0;
       } else if(d.type==='params'){
         Object.assign(this.params, d.params);
+        this.globalRate=Math.pow(2, (this.params.transposeSemi||0)/12);
       } else if(d.type==='anchors'){
         this.anchors=d.anchors||[];
       }
@@ -640,6 +686,17 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
   pickAnchor(){
     if(this.anchors.length>0) return this.anchors[Math.floor(Math.random()*this.anchors.length)];
     return Math.floor(this.srcLength*0.4);
+  }
+
+  readInterp(pos){
+    const len=this.srcLength;
+    const i0=Math.floor(pos)%len;
+    const i1=(i0+1)%len;
+    const frac=pos-Math.floor(pos);
+    return [
+      this.channels[0][i0]*(1-frac)+this.channels[0][i1]*frac,
+      this.channels[1][i0]*(1-frac)+this.channels[1][i1]*frac
+    ];
   }
 
   startNewSegment(){
@@ -717,10 +774,9 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
 
   processSample(out){
     if(this.params.chaosDry){
-      const idx=this.readCursor % this.srcLength;
-      out[0]=this.channels[0][idx];
-      out[1]=this.channels[1][idx];
-      this.readCursor=(this.readCursor+1)%this.srcLength;
+      const [v0,v1]=this.readInterp(this.readCursor);
+      out[0]=v0; out[1]=v1;
+      this.readCursor=(this.readCursor+this.globalRate)%this.srcLength;
       this.pushHistory(0,out[0]);
       this.pushHistory(1,out[1]);
       this.historyPos++;
@@ -736,10 +792,9 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
     const seg=this.seg;
 
     if(seg.type==='pass'){
-      const idx=this.readCursor;
-      out[0]=this.channels[0][idx % this.srcLength];
-      out[1]=this.channels[1][idx % this.srcLength];
-      this.readCursor=(this.readCursor+1)%this.srcLength;
+      const [v0,v1]=this.readInterp(this.readCursor);
+      out[0]=v0; out[1]=v1;
+      this.readCursor=(this.readCursor+this.globalRate)%this.srcLength;
     } else {
       if(seg.tilePos>=seg.winLen){
         const jitter=this.params.instability/100;
@@ -788,7 +843,7 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
         out[0]=this.channels[0][a0]*(1-frac)+this.channels[0][a1]*frac;
         out[1]=this.channels[1][a0]*(1-frac)+this.channels[1][a1]*frac;
       }
-      seg.tilePos+=(seg.pitchMult||1);
+      seg.tilePos+=(seg.pitchMult||1)*this.globalRate;
 
       const jitter=this.params.instability/100;
       if(jitter>0){
