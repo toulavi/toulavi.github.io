@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>1</title>
+<style>
+  :root{
+    --bg:#0b0c0a; --bg-raised:#111310; --line:#242720;
+    --ink:#d8dcd2; --ink-dim:#7a8073;
+    --phosphor:#7cff9e; --phosphor-dim:#3f7a52;
+    --amber:#e0a94a; --red:#ff5c5c;
+    --mono: ui-monospace, 'SF Mono', Consolas, monospace;
+  }
+  *{box-sizing:border-box;}
+  body{
+    background: radial-gradient(1200px 600px at 15% -10%, #131a12 0%, transparent 60%), var(--bg);
+    color:var(--ink); font-family:var(--mono); min-height:100vh; padding:20px;
+  }
+  .wrap{max-width:640px;margin:0 auto;}
+  header{margin-bottom:16px;}
+  .tag{font-size:11px;letter-spacing:.04em;color:var(--phosphor-dim);margin:0 0 4px;}
+  h1{font-size:17px;margin:0;font-weight:600;color:var(--ink);}
+  h1 span{color:var(--phosphor);}
+  section{background:var(--bg-raised);border:1px solid var(--line);border-radius:3px;padding:16px;margin-bottom:12px;}
+  .row{margin-bottom:16px;}
+  .row:last-child{margin-bottom:0;}
+  .row-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;}
+  .row-head label{font-size:12px;color:var(--ink);}
+  .row-head .val{font-size:11.5px;color:var(--phosphor);}
+  input[type=range]{width:100%;}
+  input[type=number]{
+    background:#0e0f0c;border:1px solid var(--line);color:var(--ink);
+    font-family:var(--mono);font-size:12px;padding:6px 8px;border-radius:2px;width:80px;
+  }
+  input[type=number]::-webkit-outer-spin-button, input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+  input[type=number]{-moz-appearance:textfield;}
+  .minmax{display:flex;align-items:center;gap:8px;}
+  .minmax span{font-size:11px;color:var(--ink-dim);}
+  .transport{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px;}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--line);display:inline-block;}
+  .dot.live{background:var(--phosphor);box-shadow:0 0 8px rgba(124,255,158,.7);}
+  .dot.rec{background:var(--red);box-shadow:0 0 8px rgba(255,92,92,.7);animation:pulse 1s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+  button{
+    font-family:var(--mono);font-size:12px;padding:9px 16px;border-radius:2px;
+    border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer;
+    transition:border-color .15s ease, color .15s ease;
+    user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:manipulation;
+  }
+  button.primary{background:var(--phosphor);color:#0b0c0a;border-color:var(--phosphor);font-weight:600;}
+  button.primary:hover{background:#93ffb2;}
+  button:not(.primary):hover{border-color:var(--phosphor-dim);color:var(--phosphor);}
+  button:disabled{opacity:.35;cursor:not-allowed;}
+  .statusline{font-size:11px;color:var(--ink-dim);margin-top:4px;}
+  #recOutput{display:none;margin-top:12px;}
+  audio{width:100%;margin-top:6px;}
+  a.dl{display:inline-block;margin-top:10px;font-size:12px;color:var(--phosphor);text-decoration:none;border-bottom:1px solid var(--phosphor-dim);padding-bottom:1px;}
+  a.dl:hover{color:#93ffb2;}
+  footer{margin-top:14px;font-size:10.5px;color:var(--ink-dim);line-height:1.6;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <p class="tag">EKLIPSE / WEB</p>
+    <h1>32基のオシレーターが<span>互いの千鳥足</span>を乱し合うノイズ生成機</h1>
+  </header>
+
+  <section>
+    <div class="transport">
+      <span class="dot" id="liveDot"></span>
+      <button class="primary" id="btnPlay">再生</button>
+      <button id="btnStop" disabled>停止</button>
+      <button id="btnReseed" disabled>Reseed</button>
+      <span style="flex:1"></span>
+      <span class="dot" id="recDot"></span>
+      <button id="btnRecord" disabled>録音開始</button>
+    </div>
+    <div class="statusline" id="status">準備中…</div>
+
+    <div id="recOutput">
+      <label style="font-size:12px;color:var(--ink);">録音した結果</label>
+      <audio id="player" controls></audio>
+      <div><a class="dl" id="dlLink">ダウンロード</a></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="row">
+      <div class="row-head"><label>暴れ強度</label><span class="val" id="valChaos">45%</span></div>
+      <input type="range" id="chaos" min="0" max="100" value="45">
+    </div>
+    <div class="row">
+      <div class="row-head"><label>テンポ(基本更新間隔)</label><span class="val" id="valTempo">40 ms</span></div>
+      <input type="range" id="tempo" min="4" max="300" value="40">
+    </div>
+    <div class="row">
+      <div class="row-head"><label>音域(中心の高さ)</label><span class="val" id="valRegister">220 Hz</span></div>
+      <input type="range" id="register" min="40" max="2000" value="220">
+    </div>
+    <div class="row">
+      <div class="row-head"><label>密度(同時に動くオシレーター数上限)</label><span class="val" id="valDensity">12</span></div>
+      <input type="range" id="density" min="1" max="32" value="12">
+    </div>
+    <div class="row">
+      <div class="row-head"><label>左右のねじれ</label><span class="val" id="valTwist">35%</span></div>
+      <input type="range" id="twist" min="0" max="100" value="35">
+    </div>
+  </section>
+
+  <footer>
+    Maurizio Giriの"eKlipse"(Max/MSPの実験パッチ)の仕組み——4つのランダムウォーク("drunk")が互いのステップ幅・可動域を書き換え合いながら32基のオシレーターバンクを駆動する構造——をWeb Audio(AudioWorklet)向けに再構成したもの。正確な配線の再現ではなく、構造を汲んだ再実装。パラメータはリアルタイムに反映されます。
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  const statusEl=document.getElementById('status');
+  const liveDot=document.getElementById('liveDot');
+  const recDot=document.getElementById('recDot');
+  const btnPlay=document.getElementById('btnPlay');
+  const btnStop=document.getElementById('btnStop');
+  const btnReseed=document.getElementById('btnReseed');
+  const btnRecord=document.getElementById('btnRecord');
+  const recOutput=document.getElementById('recOutput');
+  const player=document.getElementById('player');
+  const dlLink=document.getElementById('dlLink');
+
+  const chaosEl=document.getElementById('chaos');
+  const tempoEl=document.getElementById('tempo');
+  const registerEl=document.getElementById('register');
+  const densityEl=document.getElementById('density');
+  const twistEl=document.getElementById('twist');
+  const valChaos=document.getElementById('valChaos');
+  const valTempo=document.getElementById('valTempo');
+  const valRegister=document.getElementById('valRegister');
+  const valDensity=document.getElementById('valDensity');
+  const valTwist=document.getElementById('valTwist');
+
+  function syncLabels(){
+    valChaos.textContent=chaosEl.value+'%';
+    valTempo.textContent=tempoEl.value+' ms';
+    valRegister.textContent=registerEl.value+' Hz';
+    valDensity.textContent=densityEl.value;
+    valTwist.textContent=twistEl.value+'%';
+  }
+  function currentParams(){
+    return {
+      chaos: parseFloat(chaosEl.value),
+      tempoMs: parseFloat(tempoEl.value),
+      registerHz: parseFloat(registerEl.value),
+      density: parseInt(densityEl.value),
+      twist: parseFloat(twistEl.value)
+    };
+  }
+  function pushParams(){
+    if(workletNode) workletNode.port.postMessage({type:'params', params: currentParams()});
+  }
+  [chaosEl,tempoEl,registerEl,densityEl,twistEl].forEach(el=>{
+    el.addEventListener('input',()=>{ syncLabels(); pushParams(); });
+  });
+  syncLabels();
+
+  let audioCtx=null, workletNode=null, workletReady=false, isPlaying=false;
+  let mediaRecorder=null, recDest=null, lastRecUrl=null, decodeCtx=null;
+
+  async function decodeAudioDataSafely(arrayBuffer){
+    decodeCtx = decodeCtx || new (window.AudioContext||window.webkitAudioContext)();
+    return await decodeCtx.decodeAudioData(arrayBuffer);
+  }
+
+  function sanitizeFilename(name){
+    name=(name||'eklipse-web').trim();
+    if(!name) name='eklipse-web';
+    if(!/\.wav$/i.test(name)) name+='.wav';
+    return name.replace(/[\/\\:*?"<>|]/g,'_');
+  }
+
+  function bufferToWav(buffer){
+    const numCh=buffer.numberOfChannels, len=buffer.length, sr=buffer.sampleRate;
+    const bytesPerSample=2, blockAlign=numCh*bytesPerSample;
+    const dataSize=len*blockAlign;
+    const bufOut=new ArrayBuffer(44+dataSize);
+    const view=new DataView(bufOut);
+    function writeStr(o,s){ for(let i=0;i<s.length;i++) view.setUint8(o+i, s.charCodeAt(i)); }
+    writeStr(0,'RIFF'); view.setUint32(4,36+dataSize,true); writeStr(8,'WAVE');
+    writeStr(12,'fmt '); view.setUint32(16,16,true); view.setUint16(20,1,true);
+    view.setUint16(22,numCh,true); view.setUint32(24,sr,true);
+    view.setUint32(28,sr*blockAlign,true); view.setUint16(32,blockAlign,true); view.setUint16(34,16,true);
+    writeStr(36,'data'); view.setUint32(40,dataSize,true);
+    const chans=[]; for(let c=0;c<numCh;c++) chans.push(buffer.getChannelData(c));
+    let off=44;
+    for(let i=0;i<len;i++){
+      for(let c=0;c<numCh;c++){
+        let s=Math.max(-1,Math.min(1,chans[c][i]));
+        s = s<0 ? s*0x8000 : s*0x7FFF;
+        view.setInt16(off, s, true); off+=2;
+      }
+    }
+    return new Blob([bufOut], {type:'audio/wav'});
+  }
+
+  const WORKLET_SRC = `
+class EklipseProcessor extends AudioWorkletProcessor {
+  constructor(){
+    super();
+    this.params={chaos:45,tempoMs:40,registerHz:220,density:12,twist:35};
+    this.N=32;
+    this.freq=new Float32Array(this.N);
+    this.amp=new Float32Array(this.N);
+    this.phase=new Float32Array(this.N);
+    this.d1={v:0.3}; this.d2={v:0.3}; this.d3={v:0.5}; this.d4={v:0.3};
+    this.gateOpen=true;
+    this.samplesUntilTick=0;
+    this.leftPhase=0;
+    this.reseed();
+    this.port.onmessage=(e)=>{
+      const d=e.data;
+      if(d.type==='params') Object.assign(this.params, d.params);
+      else if(d.type==='reseed') this.reseed();
+    };
+  }
+  reseed(){
+    const reg=this.params.registerHz||220;
+    for(let i=0;i<this.N;i++){
+      this.freq[i]=reg*Math.pow(2,(Math.random()-0.5)*3);
+      this.amp[i]=Math.random()*0.3;
+      this.phase[i]=Math.random();
+    }
+    this.d1.v=Math.random(); this.d2.v=Math.random(); this.d3.v=Math.random(); this.d4.v=Math.random();
+    this.samplesUntilTick=0;
+  }
+  walk(state, step, lo, hi){
+    let nv=state.v+(Math.random()*2-1)*step;
+    if(nv<lo) nv=lo+(lo-nv);
+    if(nv>hi) nv=hi-(nv-hi);
+    nv=Math.max(lo,Math.min(hi,nv));
+    state.v=nv;
+    return nv;
+  }
+  tick(){
+    const p=this.params;
+    const chaosAmt=(p.chaos||0)/100;
+
+    const stepD1=0.05+chaosAmt*0.5;
+    const d1v=this.walk(this.d1, stepD1, 0, 1);
+
+    const rangeD2=0.15+this.d3.v*0.6*(0.3+chaosAmt*1.4);
+    const stepD2=(0.03+d1v*0.4)*(0.2+chaosAmt*1.6);
+    const d2v=this.walk(this.d2, stepD2, 0, Math.min(1,rangeD2));
+
+    this.gateOpen = d2v > (0.15+chaosAmt*0.1);
+
+    if(this.gateOpen){
+      const stepD3=0.04+chaosAmt*0.5;
+      this.walk(this.d3, stepD3, 0, 1);
+    }
+    const d3v=this.d3.v;
+
+    const rangeD4=0.2+d3v*0.7;
+    const stepD4=(0.03+d2v*0.5)*(0.2+chaosAmt*1.6);
+    const d4v=this.walk(this.d4, stepD4, 0, Math.min(1,rangeD4));
+
+    const maxOsc=Math.max(1, Math.min(this.N, Math.round(p.density||12)));
+    const numToUpdate=Math.max(1, Math.round(d1v*maxOsc));
+    const reg=p.registerHz||220;
+    const ampMod=d4v*(0.4+d3v*0.6)*(0.4+d2v*0.6);
+
+    for(let k=0;k<numToUpdate;k++){
+      const i=Math.floor(Math.random()*this.N);
+      if(this.gateOpen){
+        this.freq[i]=reg*Math.pow(2,(d3v-0.5)*3+(Math.random()-0.5)*0.4);
+      }
+      this.amp[i]=ampMod*(0.5+Math.random()*0.5)/Math.sqrt(maxOsc);
+    }
+
+    const baseTicks=Math.max(1, Math.round((p.tempoMs||40)/1000*sampleRate));
+    const rateMod=0.25+d2v*1.8;
+    this.samplesUntilTick=Math.max(1, Math.round(baseTicks*rateMod));
+  }
+  process(inputs, outputs){
+    const output=outputs[0];
+    const blockSize=output[0] ? output[0].length : 128;
+    const twist=(this.params.twist||0)/100;
+    for(let i=0;i<blockSize;i++){
+      if(this.samplesUntilTick<=0) this.tick();
+      this.samplesUntilTick--;
+
+      let raw=0;
+      for(let n=0;n<this.N;n++){
+        this.phase[n]+=this.freq[n]/sampleRate;
+        if(this.phase[n]>=1) this.phase[n]-=Math.floor(this.phase[n]);
+        raw+=Math.sin(2*Math.PI*this.phase[n])*this.amp[n];
+      }
+      const right=Math.tanh(raw*1.3);
+
+      const leftFreq=(this.params.registerHz||220)*0.5;
+      this.leftPhase+=leftFreq/sampleRate;
+      if(this.leftPhase>=1) this.leftPhase-=Math.floor(this.leftPhase);
+      const modAmount=raw*twist*1.8;
+      const left=Math.sin(2*Math.PI*(this.leftPhase+modAmount))*0.7;
+
+      if(output[0]) output[0][i]=left;
+      if(output[1]) output[1][i]=right;
+    }
+    return true;
+  }
+}
+registerProcessor('eklipse-processor', EklipseProcessor);
+  `;
+
+  async function ensureWorklet(){
+    if(workletReady) return;
+    audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)();
+    try{
+      if(!window.AudioWorkletNode || !audioCtx.audioWorklet){
+        statusEl.textContent='このブラウザはAudioWorkletに対応していないため動作しません。';
+        throw new Error('no audioworklet');
+      }
+      const blob=new Blob([WORKLET_SRC], {type:'application/javascript'});
+      const url=URL.createObjectURL(blob);
+      await audioCtx.audioWorklet.addModule(url);
+      workletNode = new AudioWorkletNode(audioCtx, 'eklipse-processor', {
+        numberOfInputs:0, numberOfOutputs:1, outputChannelCount:[2]
+      });
+      workletReady=true;
+      pushParams();
+    }catch(err){
+      statusEl.textContent='初期化に失敗しました: '+err.message;
+      throw err;
+    }
+  }
+
+  btnPlay.addEventListener('click', async ()=>{
+    try{
+      await ensureWorklet();
+      await audioCtx.resume();
+      workletNode.connect(audioCtx.destination);
+      isPlaying=true;
+      liveDot.classList.add('live');
+      btnPlay.disabled=true; btnStop.disabled=false; btnReseed.disabled=false; btnRecord.disabled=false;
+      statusEl.textContent='再生中。パラメータを動かすとすぐ反映されます。';
+    }catch(err){ /* already reported */ }
+  });
+
+  btnStop.addEventListener('click', ()=>{
+    if(workletNode) workletNode.disconnect();
+    isPlaying=false;
+    liveDot.classList.remove('live');
+    btnPlay.disabled=false; btnStop.disabled=true; btnReseed.disabled=true; btnRecord.disabled=true;
+    statusEl.textContent='停止しました。';
+    if(mediaRecorder && mediaRecorder.state!=='inactive') mediaRecorder.stop();
+  });
+
+  btnReseed.addEventListener('click', ()=>{
+    if(workletNode) workletNode.port.postMessage({type:'reseed'});
+    statusEl.textContent='状態をランダムに再始動しました。';
+  });
+
+  btnRecord.addEventListener('click', ()=>{
+    if(!isPlaying) return;
+    if(!mediaRecorder || mediaRecorder.state==='inactive'){
+      const thisRecDest = audioCtx.createMediaStreamDestination();
+      recDest = thisRecDest;
+      workletNode.connect(thisRecDest);
+      const thisChunks=[];
+      mediaRecorder=new MediaRecorder(thisRecDest.stream);
+      mediaRecorder.ondataavailable=(e)=>{ if(e.data.size>0) thisChunks.push(e.data); };
+      mediaRecorder.onstop=async ()=>{
+        statusEl.textContent='WAVに変換中…';
+        const webmBlob=new Blob(thisChunks, {type:'audio/webm'});
+        try{
+          const arrBuf=await webmBlob.arrayBuffer();
+          const decoded=await decodeAudioDataSafely(arrBuf);
+          const wavBlob=bufferToWav(decoded);
+          const url=URL.createObjectURL(wavBlob);
+          if(lastRecUrl) URL.revokeObjectURL(lastRecUrl);
+          lastRecUrl=url;
+          player.src=url;
+          dlLink.href=url;
+          dlLink.download=sanitizeFilename('eklipse-web');
+          recOutput.style.display='block';
+          statusEl.textContent='録音完了(WAV変換済み)。下で試聴・ダウンロードできます。';
+        }catch(err){
+          const url=URL.createObjectURL(webmBlob);
+          if(lastRecUrl) URL.revokeObjectURL(lastRecUrl);
+          lastRecUrl=url;
+          player.src=url;
+          dlLink.href=url;
+          dlLink.download='eklipse-web.webm';
+          recOutput.style.display='block';
+          statusEl.textContent='WAV変換に失敗したためwebmのまま渡します: '+err.message;
+        }
+        recDot.classList.remove('rec');
+        btnRecord.textContent='録音開始';
+        try{ workletNode.disconnect(thisRecDest); }catch(e){}
+      };
+      mediaRecorder.start();
+      recDot.classList.add('rec');
+      btnRecord.textContent='録音停止';
+      statusEl.textContent='録音中…';
+    } else {
+      mediaRecorder.stop();
+    }
+  });
+
+  statusEl.textContent='「再生」を押すと始まります。';
+})();
+</script>
+</body>
+</html>
