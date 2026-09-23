@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>4</title>
+<title>5</title>
 <style>
   *{box-sizing:border-box}
   body{margin:0;background:#111;color:#eee;font-family:system-ui,sans-serif}
@@ -47,7 +47,15 @@
   .marker-legend{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;font-size:11px;color:#999}
   .marker-legend span{padding:3px 7px;border:1px solid #333;border-radius:5px}
 </style>
-<style>.normalize-control{display:flex;align-items:center;gap:6px}#bpmValue{width:68px;box-sizing:border-box}</style></head>
+<style>.normalize-control{display:flex;align-items:center;gap:6px}#bpmValue{width:68px;box-sizing:border-box}</style>
+<style>
+.pad-settings{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin:12px 0}
+.pad-setting{padding:9px;border:1px solid #ccc;border-radius:8px}
+.pad-setting label{display:flex;align-items:center;gap:6px;font-size:12px;margin-top:5px}
+.pad-setting input[type=range]{width:100px}
+.pad-setting output{min-width:48px}
+</style>
+</head>
 <body>
 <div class="wrap">
   <h1>DECOMPOSE DRUM</h1>
@@ -101,6 +109,35 @@
       「再配置」を押すと、同じ音源から各パッドが参照する場所を変えます。<br>
       まずは声・ピアノ・環境音など、ドラムではない音源を入れると挙動がわかりやすいです。
     </div>
+  </div>
+</div>
+
+
+<div id="padSettings" class="pad-settings">
+  <div class="pad-setting"><b>KICK</b>
+    <label>長さ <input id="lenKICK" type="range" min="30" max="600" value="180"><output id="lenKICKOut">180ms</output></label>
+    <label>探索幅 <input id="searchKICK" type="range" min="0" max="500" value="120"><output id="searchKICKOut">120ms</output></label>
+    <label><input id="normKICK" type="checkbox" checked> Normalize</label>
+  </div>
+  <div class="pad-setting"><b>SNARE</b>
+    <label>長さ <input id="lenSNARE" type="range" min="30" max="600" value="180"><output id="lenSNAREOut">180ms</output></label>
+    <label>探索幅 <input id="searchSNARE" type="range" min="0" max="500" value="120"><output id="searchSNAREOut">120ms</output></label>
+    <label><input id="normSNARE" type="checkbox" checked> Normalize</label>
+  </div>
+  <div class="pad-setting"><b>HAT</b>
+    <label>長さ <input id="lenHAT" type="range" min="20" max="400" value="100"><output id="lenHATOut">100ms</output></label>
+    <label>探索幅 <input id="searchHAT" type="range" min="0" max="500" value="120"><output id="searchHATOut">120ms</output></label>
+    <label><input id="normHAT" type="checkbox" checked> Normalize</label>
+  </div>
+  <div class="pad-setting"><b>TOM</b>
+    <label>長さ <input id="lenTOM" type="range" min="30" max="1000" value="300"><output id="lenTOMOut">300ms</output></label>
+    <label>探索幅 <input id="searchTOM" type="range" min="0" max="500" value="150"><output id="searchTOMOut">150ms</output></label>
+    <label><input id="normTOM" type="checkbox" checked> Normalize</label>
+  </div>
+  <div class="pad-setting"><b>FX</b>
+    <label>長さ <input id="lenFX" type="range" min="30" max="1000" value="250"><output id="lenFXOut">250ms</output></label>
+    <label>探索幅 <input id="searchFX" type="range" min="0" max="500" value="150"><output id="searchFXOut">150ms</output></label>
+    <label><input id="normFX" type="checkbox" checked> Normalize</label>
   </div>
 </div>
 
@@ -197,7 +234,53 @@ function redistribute(){
   }
   drawWave();
 }
-async function playSlice(kind){
+async 
+/* --- DECOMPOSE DRUM v3 per-voice controls --- */
+const padSettings = {
+  KICK:{len:document.getElementById("lenKICK"), search:document.getElementById("searchKICK"), norm:document.getElementById("normKICK")},
+  SNARE:{len:document.getElementById("lenSNARE"), search:document.getElementById("searchSNARE"), norm:document.getElementById("normSNARE")},
+  HAT:{len:document.getElementById("lenHAT"), search:document.getElementById("searchHAT"), norm:document.getElementById("normHAT")},
+  TOM:{len:document.getElementById("lenTOM"), search:document.getElementById("searchTOM"), norm:document.getElementById("normTOM")},
+  FX:{len:document.getElementById("lenFX"), search:document.getElementById("searchFX"), norm:document.getElementById("normFX")}
+};
+
+for(const kind of Object.keys(padSettings)){
+  const s=padSettings[kind];
+  if(!s.len) continue;
+  s.len.addEventListener("input",()=>document.getElementById("len"+kind+"Out").value=s.len.value+"ms");
+  s.search.addEventListener("input",()=>document.getElementById("search"+kind+"Out").value=s.search.value+"ms");
+}
+
+function refinedSourceTime(kind){
+  if(!buffer || typeof map==="undefined") return 0;
+  const base=map[kind] ?? 0;
+  const radius=(Number(padSettings[kind]?.search?.value)||0)/1000;
+  if(radius<=0) return Math.max(0,Math.min(base,buffer.duration-.02));
+
+  let best={t:base,s:-Infinity};
+  for(let i=0;i<31;i++){
+    const t=Math.max(0,Math.min(buffer.duration-.02,base-radius+(2*radius*i/30)));
+    const f=featureAt(t);
+    let s=0;
+    if(kind==="KICK"){
+      // KICKは「低い」だけでなく、短い低域トランジェントを優先。
+      s=2.0*f.low+1.5*f.attack+0.8*f.transient-1.2*f.high-0.9*f.mid-0.7*f.zcr;
+    }else if(kind==="SNARE"){
+      s=1.15*f.mid+1.35*f.high+1.15*f.attack+0.35*f.transient-0.65*f.low;
+    }else if(kind==="HAT"){
+      s=2.0*f.high+1.35*f.zcr+0.65*f.transient-1.0*f.low-0.25*f.body;
+    }else if(kind==="TOM"){
+      s=1.55*f.low+1.15*f.mid+0.45*f.body-0.85*f.high-0.25*f.attack;
+    }else{
+      s=f.mid+f.high+f.transient;
+    }
+    if(s>best.s) best={t,s};
+  }
+  return best.t;
+}
+/* --- end v3 controls --- */
+
+function playSlice(kind){
   if(!buffer){
     status.textContent='先に音源を読み込んでください。';
     return;
