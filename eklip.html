@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>7</title>
+<title>8</title>
 <style>
   :root{
     --bg:#0b0c0a; --bg-raised:#111310; --line:#242720;
@@ -131,10 +131,14 @@
       <input type="range" id="twist" min="0" max="100" value="35">
     </div>
     <div class="row">
-      <div class="row-head"><label>エンベロープ(Reseedのたびに発動)</label></div>
-      <div class="minmax">
-        <input type="number" id="envAttack" value="5" min="0" max="5000" step="1"><span>ms Attack　</span>
-        <input type="number" id="envRelease" value="400" min="1" max="20000" step="10"><span>ms Release</span>
+      <div class="row-head"><label>エンベロープ(Reseedのたびに発動。点をドラッグで編集)</label></div>
+      <canvas id="envCanvas" width="600" height="140" style="width:100%;height:140px;display:block;background:#0e0f0c;border:1px solid var(--line);border-radius:2px;cursor:pointer;touch-action:none;"></canvas>
+      <div class="minmax" style="margin-top:8px;flex-wrap:wrap;">
+        <input type="number" id="envAttack" value="5" min="0" max="20000" step="1"><span>ms A　</span>
+        <input type="number" id="envDecay" value="80" min="0" max="20000" step="1"><span>ms D　</span>
+        <input type="number" id="envSustainLevel" value="60" min="0" max="100" step="1"><span>% S　</span>
+        <input type="number" id="envSustainHold" value="150" min="0" max="20000" step="10"><span>ms Hold　</span>
+        <input type="number" id="envRelease" value="400" min="1" max="20000" step="10"><span>ms R</span>
       </div>
     </div>
     <div class="row">
@@ -188,7 +192,12 @@
   const densityEl=document.getElementById('density');
   const twistEl=document.getElementById('twist');
   const envAttackEl=document.getElementById('envAttack');
+  const envDecayEl=document.getElementById('envDecay');
+  const envSustainLevelEl=document.getElementById('envSustainLevel');
+  const envSustainHoldEl=document.getElementById('envSustainHold');
   const envReleaseEl=document.getElementById('envRelease');
+  const envCanvas=document.getElementById('envCanvas');
+  const envCtx=envCanvas.getContext('2d');
   const valChaos=document.getElementById('valChaos');
   const valTwist=document.getElementById('valTwist');
   const btnSeqOn=document.getElementById('btnSeqOn');
@@ -259,9 +268,116 @@
     });
   }
   enableAbletonStyleNumberInput(seqBpmEl);
-  [envAttackEl,envReleaseEl].forEach(enableAbletonStyleNumberInput);
-  envAttackEl.addEventListener('input', ()=>{ pushParams(); });
-  envReleaseEl.addEventListener('input', ()=>{ pushParams(); });
+  [envAttackEl,envDecayEl,envSustainLevelEl,envSustainHoldEl,envReleaseEl].forEach(enableAbletonStyleNumberInput);
+  [envAttackEl,envDecayEl,envSustainLevelEl,envSustainHoldEl,envReleaseEl].forEach(el=>{
+    el.addEventListener('input', ()=>{ drawEnvelope(); pushParams(); });
+  });
+
+  function envGetValues(){
+    return {
+      a: Math.max(0, parseFloat(envAttackEl.value)||0),
+      d: Math.max(0, parseFloat(envDecayEl.value)||0),
+      s: Math.max(0, Math.min(100, parseFloat(envSustainLevelEl.value)||0))/100,
+      h: Math.max(0, parseFloat(envSustainHoldEl.value)||0),
+      r: Math.max(1, parseFloat(envReleaseEl.value)||1)
+    };
+  }
+  function envPoints(){
+    const v=envGetValues();
+    const W=envCanvas.width, H=envCanvas.height;
+    const pad=14;
+    const usableW=W-pad*2, usableH=H-pad*2;
+    const total=Math.max(1, v.a+v.d+v.h+v.r);
+    const xA=pad+(v.a/total)*usableW;
+    const xD=xA+(v.d/total)*usableW;
+    const xH=xD+(v.h/total)*usableW;
+    const xR=xH+(v.r/total)*usableW;
+    const yTop=pad, yBot=H-pad;
+    const ySustain=yBot-(v.s*usableH);
+    return {
+      p0:{x:pad,y:yBot}, p1:{x:xA,y:yTop}, p2:{x:xD,y:ySustain}, p3:{x:xH,y:ySustain}, p4:{x:xR,y:yBot},
+      pad, usableW, usableH, total
+    };
+  }
+  function drawEnvelope(){
+    const pts=envPoints();
+    envCtx.clearRect(0,0,envCanvas.width,envCanvas.height);
+    envCtx.beginPath();
+    envCtx.moveTo(pts.p0.x,pts.p0.y);
+    envCtx.lineTo(pts.p1.x,pts.p1.y);
+    envCtx.lineTo(pts.p2.x,pts.p2.y);
+    envCtx.lineTo(pts.p3.x,pts.p3.y);
+    envCtx.lineTo(pts.p4.x,pts.p4.y);
+    envCtx.lineTo(pts.p4.x,pts.p0.y);
+    envCtx.closePath();
+    envCtx.fillStyle='rgba(124,255,158,0.10)';
+    envCtx.fill();
+    envCtx.beginPath();
+    envCtx.moveTo(pts.p0.x,pts.p0.y);
+    envCtx.lineTo(pts.p1.x,pts.p1.y);
+    envCtx.lineTo(pts.p2.x,pts.p2.y);
+    envCtx.lineTo(pts.p3.x,pts.p3.y);
+    envCtx.lineTo(pts.p4.x,pts.p4.y);
+    envCtx.strokeStyle='#7cff9e';
+    envCtx.lineWidth=2;
+    envCtx.stroke();
+    [pts.p1,pts.p2,pts.p3,pts.p4].forEach(p=>{
+      envCtx.beginPath();
+      envCtx.arc(p.x,p.y,6,0,Math.PI*2);
+      envCtx.fillStyle='#e0a94a';
+      envCtx.fill();
+    });
+  }
+
+  let envDragHandle=null, envDragStart=null, envStartVals=null;
+  function envCanvasCoords(e){
+    const rect=envCanvas.getBoundingClientRect();
+    return {
+      x:(e.clientX-rect.left)*(envCanvas.width/rect.width),
+      y:(e.clientY-rect.top)*(envCanvas.height/rect.height)
+    };
+  }
+  envCanvas.addEventListener('pointerdown', e=>{
+    const pos=envCanvasCoords(e);
+    const pts=envPoints();
+    const candidates=[['p1',pts.p1],['p2',pts.p2],['p3',pts.p3],['p4',pts.p4]];
+    let best=null, bestDist=22;
+    candidates.forEach(([name,p])=>{
+      const dist=Math.hypot(pos.x-p.x,pos.y-p.y);
+      if(dist<bestDist){ bestDist=dist; best=name; }
+    });
+    if(!best) return;
+    envDragHandle=best;
+    envDragStart=pos;
+    envStartVals=envGetValues();
+    envStartVals.msPerPixel=Math.max(0.5, pts.total/pts.usableW);
+    envStartVals.levelPerPixel=1/pts.usableH;
+    try{ envCanvas.setPointerCapture(e.pointerId); }catch(err){}
+  });
+  envCanvas.addEventListener('pointermove', e=>{
+    if(!envDragHandle) return;
+    const pos=envCanvasCoords(e);
+    const dx=pos.x-envDragStart.x;
+    const dy=pos.y-envDragStart.y;
+    const msDelta=dx*envStartVals.msPerPixel;
+    if(envDragHandle==='p1'){
+      envAttackEl.value=Math.max(0,Math.round(envStartVals.a+msDelta));
+    } else if(envDragHandle==='p2'){
+      envDecayEl.value=Math.max(0,Math.round(envStartVals.d+msDelta));
+      const levelDelta=-dy*envStartVals.levelPerPixel;
+      envSustainLevelEl.value=Math.max(0,Math.min(100,Math.round((envStartVals.s+levelDelta)*100)));
+    } else if(envDragHandle==='p3'){
+      envSustainHoldEl.value=Math.max(0,Math.round(envStartVals.h+msDelta));
+    } else if(envDragHandle==='p4'){
+      envReleaseEl.value=Math.max(1,Math.round(envStartVals.r+msDelta));
+    }
+    drawEnvelope();
+    pushParams();
+  });
+  function envEndDrag(){ envDragHandle=null; }
+  envCanvas.addEventListener('pointerup', envEndDrag);
+  envCanvas.addEventListener('pointercancel', envEndDrag);
+  drawEnvelope();
   seqBpmEl.addEventListener('input', ()=>{ pushParams(); });
   seqStepLenEl.addEventListener('change', ()=>{ pushParams(); });
   [tempoEl,tempoBpmEl,densityEl].forEach(enableAbletonStyleNumberInput);
@@ -315,6 +431,9 @@
       density: parseInt(densityEl.value),
       twist: parseFloat(twistEl.value),
       envAttackMs: parseFloat(envAttackEl.value)||5,
+      envDecayMs: parseFloat(envDecayEl.value)||80,
+      envSustainLevel: parseFloat(envSustainLevelEl.value)||60,
+      envSustainHoldMs: parseFloat(envSustainHoldEl.value)||150,
       envReleaseMs: parseFloat(envReleaseEl.value)||400,
       seqOn: seqOn?1:0,
       seqBpm: parseFloat(seqBpmEl.value)||120,
@@ -373,7 +492,7 @@
 class EklipseProcessor extends AudioWorkletProcessor {
   constructor(){
     super();
-    this.params={chaos:45,tempoMs:40,registerHz:220,density:12,twist:35,envAttackMs:5,envReleaseMs:400,seqOn:0,seqBpm:120,seqStepFrac:0.25,seqPattern:new Array(16).fill(0)};
+    this.params={chaos:45,tempoMs:40,registerHz:220,density:12,twist:35,envAttackMs:5,envDecayMs:80,envSustainLevel:60,envSustainHoldMs:150,envReleaseMs:400,seqOn:0,seqBpm:120,seqStepFrac:0.25,seqPattern:new Array(16).fill(0)};
     this.N=32;
     this.freq=new Float32Array(this.N);
     this.amp=new Float32Array(this.N);
@@ -389,6 +508,11 @@ class EklipseProcessor extends AudioWorkletProcessor {
     this.seqStepSamples=this.computeSeqStepSamples();
     this.envValue=0;
     this.envPhase='idle';
+    this.envAttackStep=0;
+    this.envDecayStep=0;
+    this.envSustainLevel=0;
+    this.envSustainCounter=0;
+    this.envReleaseStep=0;
     this.reseed();
     this.port.onmessage=(e)=>{
       const d=e.data;
@@ -426,6 +550,8 @@ class EklipseProcessor extends AudioWorkletProcessor {
     this.lastD3=this.d3.v; this.lastD4=this.d4.v;
     this.samplesUntilTick=0;
     this.envPhase='attack';
+    const attackSamples=Math.max(1, Math.round((this.params.envAttackMs||5)/1000*sampleRate));
+    this.envAttackStep=1/attackSamples;
   }
   walk(state, step, lo, hi){
     let nv=state.v+(Math.random()*2-1)*step;
@@ -513,12 +639,31 @@ class EklipseProcessor extends AudioWorkletProcessor {
       const left=Math.sin(2*Math.PI*(this.leftPhase+modAmount))*leftAmpMod;
 
       if(this.envPhase==='attack'){
-        const attackSamples=Math.max(1, Math.round((this.params.envAttackMs||5)/1000*sampleRate));
-        this.envValue+=1/attackSamples;
-        if(this.envValue>=1){ this.envValue=1; this.envPhase='release'; }
+        this.envValue+=this.envAttackStep;
+        if(this.envValue>=1){
+          this.envValue=1;
+          this.envPhase='decay';
+          const sustainLevel=Math.max(0,Math.min(1,(this.params.envSustainLevel||60)/100));
+          const decaySamples=Math.max(1, Math.round((this.params.envDecayMs||80)/1000*sampleRate));
+          this.envDecayStep=(1-sustainLevel)/decaySamples;
+          this.envSustainLevel=sustainLevel;
+        }
+      } else if(this.envPhase==='decay'){
+        this.envValue-=this.envDecayStep;
+        if(this.envValue<=this.envSustainLevel){
+          this.envValue=this.envSustainLevel;
+          this.envPhase='sustain';
+          this.envSustainCounter=Math.max(1, Math.round((this.params.envSustainHoldMs||150)/1000*sampleRate));
+        }
+      } else if(this.envPhase==='sustain'){
+        this.envSustainCounter--;
+        if(this.envSustainCounter<=0){
+          this.envPhase='release';
+          const releaseSamples=Math.max(1, Math.round((this.params.envReleaseMs||400)/1000*sampleRate));
+          this.envReleaseStep=this.envValue/releaseSamples;
+        }
       } else if(this.envPhase==='release'){
-        const releaseSamples=Math.max(1, Math.round((this.params.envReleaseMs||400)/1000*sampleRate));
-        this.envValue-=1/releaseSamples;
+        this.envValue-=this.envReleaseStep;
         if(this.envValue<=0){ this.envValue=0; this.envPhase='idle'; }
       }
 
