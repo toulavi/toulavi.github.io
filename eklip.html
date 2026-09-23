@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>6</title>
+<title>7</title>
 <style>
   :root{
     --bg:#0b0c0a; --bg-raised:#111310; --line:#242720;
@@ -131,6 +131,13 @@
       <input type="range" id="twist" min="0" max="100" value="35">
     </div>
     <div class="row">
+      <div class="row-head"><label>エンベロープ(Reseedのたびに発動)</label></div>
+      <div class="minmax">
+        <input type="number" id="envAttack" value="5" min="0" max="5000" step="1"><span>ms Attack　</span>
+        <input type="number" id="envRelease" value="400" min="1" max="20000" step="10"><span>ms Release</span>
+      </div>
+    </div>
+    <div class="row">
       <div class="row-head"><label>ステップシーケンサー(ステップごとにReseedを撃つ)</label></div>
       <div style="margin-bottom:8px;">
         <button type="button" id="btnSeqOn">シーケンサー: OFF</button>
@@ -180,6 +187,8 @@
   const registerEl=document.getElementById('register');
   const densityEl=document.getElementById('density');
   const twistEl=document.getElementById('twist');
+  const envAttackEl=document.getElementById('envAttack');
+  const envReleaseEl=document.getElementById('envRelease');
   const valChaos=document.getElementById('valChaos');
   const valTwist=document.getElementById('valTwist');
   const btnSeqOn=document.getElementById('btnSeqOn');
@@ -250,6 +259,9 @@
     });
   }
   enableAbletonStyleNumberInput(seqBpmEl);
+  [envAttackEl,envReleaseEl].forEach(enableAbletonStyleNumberInput);
+  envAttackEl.addEventListener('input', ()=>{ pushParams(); });
+  envReleaseEl.addEventListener('input', ()=>{ pushParams(); });
   seqBpmEl.addEventListener('input', ()=>{ pushParams(); });
   seqStepLenEl.addEventListener('change', ()=>{ pushParams(); });
   [tempoEl,tempoBpmEl,densityEl].forEach(enableAbletonStyleNumberInput);
@@ -302,6 +314,8 @@
       registerHz: parseFloat(registerEl.value),
       density: parseInt(densityEl.value),
       twist: parseFloat(twistEl.value),
+      envAttackMs: parseFloat(envAttackEl.value)||5,
+      envReleaseMs: parseFloat(envReleaseEl.value)||400,
       seqOn: seqOn?1:0,
       seqBpm: parseFloat(seqBpmEl.value)||120,
       seqStepFrac: parseFloat(seqStepLenEl.value)||0.25,
@@ -359,7 +373,7 @@
 class EklipseProcessor extends AudioWorkletProcessor {
   constructor(){
     super();
-    this.params={chaos:45,tempoMs:40,registerHz:220,density:12,twist:35,seqOn:0,seqBpm:120,seqStepFrac:0.25,seqPattern:new Array(16).fill(0)};
+    this.params={chaos:45,tempoMs:40,registerHz:220,density:12,twist:35,envAttackMs:5,envReleaseMs:400,seqOn:0,seqBpm:120,seqStepFrac:0.25,seqPattern:new Array(16).fill(0)};
     this.N=32;
     this.freq=new Float32Array(this.N);
     this.amp=new Float32Array(this.N);
@@ -373,6 +387,8 @@ class EklipseProcessor extends AudioWorkletProcessor {
     this.seqStepIndex=0;
     this.seqCounter=Infinity;
     this.seqStepSamples=this.computeSeqStepSamples();
+    this.envValue=0;
+    this.envPhase='idle';
     this.reseed();
     this.port.onmessage=(e)=>{
       const d=e.data;
@@ -409,6 +425,7 @@ class EklipseProcessor extends AudioWorkletProcessor {
     this.d1.v=Math.random(); this.d2.v=Math.random(); this.d3.v=Math.random(); this.d4.v=Math.random();
     this.lastD3=this.d3.v; this.lastD4=this.d4.v;
     this.samplesUntilTick=0;
+    this.envPhase='attack';
   }
   walk(state, step, lo, hi){
     let nv=state.v+(Math.random()*2-1)*step;
@@ -495,8 +512,18 @@ class EklipseProcessor extends AudioWorkletProcessor {
       const leftAmpMod=0.15+this.lastD4*0.6;
       const left=Math.sin(2*Math.PI*(this.leftPhase+modAmount))*leftAmpMod;
 
-      if(output[0]) output[0][i]=left;
-      if(output[1]) output[1][i]=right;
+      if(this.envPhase==='attack'){
+        const attackSamples=Math.max(1, Math.round((this.params.envAttackMs||5)/1000*sampleRate));
+        this.envValue+=1/attackSamples;
+        if(this.envValue>=1){ this.envValue=1; this.envPhase='release'; }
+      } else if(this.envPhase==='release'){
+        const releaseSamples=Math.max(1, Math.round((this.params.envReleaseMs||400)/1000*sampleRate));
+        this.envValue-=1/releaseSamples;
+        if(this.envValue<=0){ this.envValue=0; this.envPhase='idle'; }
+      }
+
+      if(output[0]) output[0][i]=left*this.envValue;
+      if(output[1]) output[1][i]=right*this.envValue;
     }
     return true;
   }
