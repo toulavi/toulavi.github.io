@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>3</title>
+<title>6</title>
 <style>
   :root{
     --bg:#0b0c0a; --bg-raised:#111310; --line:#242720;
@@ -37,6 +37,9 @@
   input[type=number]{-moz-appearance:textfield;}
   .minmax{display:flex;align-items:center;gap:8px;}
   .minmax span{font-size:11px;color:var(--ink-dim);}
+  .modeBtn{padding:6px 12px;font-size:11px;margin-right:6px;}
+  .seqStep{padding:10px 0;font-size:11px;text-align:center;}
+  .seqStep.playhead{box-shadow:0 0 0 2px var(--amber) inset;}
   .transport{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px;}
   .dot{width:8px;height:8px;border-radius:50%;background:var(--line);display:inline-block;}
   .dot.live{background:var(--phosphor);box-shadow:0 0 8px rgba(124,255,158,.7);}
@@ -94,15 +97,28 @@
     </div>
     <div class="row">
       <div class="row-head"><label>テンポ(基本更新間隔)</label></div>
-      <div class="minmax">
+      <div style="margin-bottom:8px;">
+        <button type="button" class="modeBtn primary" id="tempoModeMs">ms指定</button>
+        <button type="button" class="modeBtn" id="tempoModeBpm">BPM指定</button>
+      </div>
+      <div class="minmax" id="tempoMsControls">
         <input type="number" id="tempo" value="40" min="4" max="300" step="1"><span>ms</span>
+      </div>
+      <div class="minmax" id="tempoBpmControls" style="display:none;">
+        <input type="number" id="tempoBpm" value="120" min="20" max="300" step="1"><span>BPM　音符:</span>
+        <select id="tempoNoteLen" style="font-family:var(--mono);background:#0e0f0c;color:var(--ink);border:1px solid var(--line);padding:6px;border-radius:2px;">
+          <option value="4">1/1</option>
+          <option value="2">1/2</option>
+          <option value="1">1/4</option>
+          <option value="0.5" selected>1/8</option>
+          <option value="0.25">1/16</option>
+          <option value="0.125">1/32</option>
+        </select>
       </div>
     </div>
     <div class="row">
-      <div class="row-head"><label>音域(中心の高さ)</label></div>
-      <div class="minmax">
-        <input type="number" id="register" value="220" min="40" max="2000" step="1"><span>Hz</span>
-      </div>
+      <div class="row-head"><label>音域(中心の音程)</label></div>
+      <select id="register" style="font-family:var(--mono);background:#0e0f0c;color:var(--ink);border:1px solid var(--line);padding:8px;border-radius:2px;width:100%;"></select>
     </div>
     <div class="row">
       <div class="row-head"><label>密度(同時に動くオシレーター数上限)</label></div>
@@ -115,12 +131,22 @@
       <input type="range" id="twist" min="0" max="100" value="35">
     </div>
     <div class="row">
-      <div class="row-head"><label>自動Reseed</label></div>
-      <div style="display:flex;align-items:center;gap:10px;">
-        <button type="button" id="btnAutoReseed">自動Reseed: OFF</button>
-        <input type="number" id="autoReseedSec" value="8" min="1" max="120" step="1">
-        <span style="font-size:11px;color:var(--ink-dim);">秒ごと</span>
+      <div class="row-head"><label>ステップシーケンサー(ステップごとにReseedを撃つ)</label></div>
+      <div style="margin-bottom:8px;">
+        <button type="button" id="btnSeqOn">シーケンサー: OFF</button>
+        <button type="button" id="btnSeqRandom">パターンをランダム化</button>
+        <button type="button" id="btnSeqClear">クリア</button>
       </div>
+      <div class="minmax" style="margin-bottom:8px;">
+        <input type="number" id="seqBpm" value="120" min="20" max="300" step="1"><span>BPM　ステップ長:</span>
+        <select id="seqStepLen" style="font-family:var(--mono);background:#0e0f0c;color:var(--ink);border:1px solid var(--line);padding:6px;border-radius:2px;">
+          <option value="1">1/4</option>
+          <option value="0.5">1/8</option>
+          <option value="0.25" selected>1/16</option>
+          <option value="0.125">1/32</option>
+        </select>
+      </div>
+      <div id="seqSteps" style="display:grid;grid-template-columns:repeat(8,1fr);gap:4px;"></div>
     </div>
   </section>
 
@@ -145,18 +171,47 @@
 
   const chaosEl=document.getElementById('chaos');
   const tempoEl=document.getElementById('tempo');
+  const tempoModeMsEl=document.getElementById('tempoModeMs');
+  const tempoModeBpmEl=document.getElementById('tempoModeBpm');
+  const tempoMsControls=document.getElementById('tempoMsControls');
+  const tempoBpmControls=document.getElementById('tempoBpmControls');
+  const tempoBpmEl=document.getElementById('tempoBpm');
+  const tempoNoteLenEl=document.getElementById('tempoNoteLen');
   const registerEl=document.getElementById('register');
   const densityEl=document.getElementById('density');
   const twistEl=document.getElementById('twist');
   const valChaos=document.getElementById('valChaos');
   const valTwist=document.getElementById('valTwist');
-  const btnAutoReseed=document.getElementById('btnAutoReseed');
-  const autoReseedSecEl=document.getElementById('autoReseedSec');
-  let autoReseedOn=false;
-  btnAutoReseed.addEventListener('click',()=>{
-    autoReseedOn=!autoReseedOn;
-    btnAutoReseed.textContent='自動Reseed: '+(autoReseedOn?'ON':'OFF');
-    btnAutoReseed.classList.toggle('primary', autoReseedOn);
+  const btnSeqOn=document.getElementById('btnSeqOn');
+  const btnSeqRandom=document.getElementById('btnSeqRandom');
+  const btnSeqClear=document.getElementById('btnSeqClear');
+  const seqBpmEl=document.getElementById('seqBpm');
+  const seqStepLenEl=document.getElementById('seqStepLen');
+  const seqStepsContainer=document.getElementById('seqSteps');
+  const NUM_STEPS=16;
+  const seqButtons=[];
+  for(let i=0;i<NUM_STEPS;i++){
+    const b=document.createElement('button');
+    b.type='button';
+    b.className='seqStep';
+    b.textContent=(i+1);
+    b.addEventListener('click',()=>{ b.classList.toggle('primary'); pushParams(); });
+    seqStepsContainer.appendChild(b);
+    seqButtons.push(b);
+  }
+  let seqOn=false;
+  btnSeqOn.addEventListener('click',()=>{
+    seqOn=!seqOn;
+    btnSeqOn.textContent='シーケンサー: '+(seqOn?'ON':'OFF');
+    btnSeqOn.classList.toggle('primary', seqOn);
+    pushParams();
+  });
+  btnSeqRandom.addEventListener('click',()=>{
+    seqButtons.forEach(b=>b.classList.toggle('primary', Math.random()<0.35));
+    pushParams();
+  });
+  btnSeqClear.addEventListener('click',()=>{
+    seqButtons.forEach(b=>b.classList.remove('primary'));
     pushParams();
   });
   function enableAbletonStyleNumberInput(el){
@@ -194,9 +249,47 @@
       if(!moved) requestAnimationFrame(()=>{ el.focus(); el.select(); });
     });
   }
-  enableAbletonStyleNumberInput(autoReseedSecEl);
-  autoReseedSecEl.addEventListener('input', ()=>{ pushParams(); });
-  [tempoEl,registerEl,densityEl].forEach(enableAbletonStyleNumberInput);
+  enableAbletonStyleNumberInput(seqBpmEl);
+  seqBpmEl.addEventListener('input', ()=>{ pushParams(); });
+  seqStepLenEl.addEventListener('change', ()=>{ pushParams(); });
+  [tempoEl,tempoBpmEl,densityEl].forEach(enableAbletonStyleNumberInput);
+
+  function syncTempoModeUI(){
+    const bpmMode=tempoModeBpmEl.classList.contains('primary');
+    tempoMsControls.style.display=bpmMode?'none':'flex';
+    tempoBpmControls.style.display=bpmMode?'flex':'none';
+  }
+  [tempoModeMsEl,tempoModeBpmEl].forEach(el=>el.addEventListener('click',()=>{
+    tempoModeMsEl.classList.toggle('primary', el===tempoModeMsEl);
+    tempoModeBpmEl.classList.toggle('primary', el===tempoModeBpmEl);
+    syncTempoModeUI();
+    pushParams();
+  }));
+  tempoBpmEl.addEventListener('input', ()=>{ pushParams(); });
+  tempoNoteLenEl.addEventListener('change', ()=>{ pushParams(); });
+  syncTempoModeUI();
+  function computeTempoMs(){
+    if(tempoModeBpmEl.classList.contains('primary')){
+      const bpm=Math.max(20, parseFloat(tempoBpmEl.value)||120);
+      const noteFrac=parseFloat(tempoNoteLenEl.value)||0.5;
+      return (60000/bpm)*noteFrac;
+    }
+    return parseFloat(tempoEl.value)||40;
+  }
+
+  (function populateRegisterNotes(){
+    const names=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+    for(let midi=24; midi<=96; midi++){
+      const freq=440*Math.pow(2,(midi-69)/12);
+      const name=names[midi%12]+(Math.floor(midi/12)-1);
+      const opt=document.createElement('option');
+      opt.value=freq.toFixed(2);
+      opt.textContent=name+'  ('+Math.round(freq)+' Hz)';
+      if(midi===57) opt.selected=true;
+      registerEl.appendChild(opt);
+    }
+  })();
+  registerEl.addEventListener('change', ()=>{ pushParams(); });
 
   function syncLabels(){
     valChaos.textContent=chaosEl.value+'%';
@@ -205,12 +298,14 @@
   function currentParams(){
     return {
       chaos: parseFloat(chaosEl.value),
-      tempoMs: parseFloat(tempoEl.value),
+      tempoMs: computeTempoMs(),
       registerHz: parseFloat(registerEl.value),
       density: parseInt(densityEl.value),
       twist: parseFloat(twistEl.value),
-      autoReseedOn: autoReseedOn?1:0,
-      autoReseedSec: parseFloat(autoReseedSecEl.value)||8
+      seqOn: seqOn?1:0,
+      seqBpm: parseFloat(seqBpmEl.value)||120,
+      seqStepFrac: parseFloat(seqStepLenEl.value)||0.25,
+      seqPattern: seqButtons.map(b=>b.classList.contains('primary')?1:0)
     };
   }
   function pushParams(){
@@ -264,7 +359,7 @@
 class EklipseProcessor extends AudioWorkletProcessor {
   constructor(){
     super();
-    this.params={chaos:45,tempoMs:40,registerHz:220,density:12,twist:35,autoReseedOn:0,autoReseedSec:8};
+    this.params={chaos:45,tempoMs:40,registerHz:220,density:12,twist:35,seqOn:0,seqBpm:120,seqStepFrac:0.25,seqPattern:new Array(16).fill(0)};
     this.N=32;
     this.freq=new Float32Array(this.N);
     this.amp=new Float32Array(this.N);
@@ -275,24 +370,34 @@ class EklipseProcessor extends AudioWorkletProcessor {
     this.leftPhase=0;
     this.lastD3=0.5;
     this.lastD4=0.3;
-    this.autoReseedCounter=Infinity;
+    this.seqStepIndex=0;
+    this.seqCounter=Infinity;
+    this.seqStepSamples=this.computeSeqStepSamples();
     this.reseed();
     this.port.onmessage=(e)=>{
       const d=e.data;
       if(d.type==='params'){
-        const prevOn=this.params.autoReseedOn;
-        const prevSec=this.params.autoReseedSec;
+        const prevOn=this.params.seqOn;
+        const prevBpm=this.params.seqBpm;
+        const prevFrac=this.params.seqStepFrac;
         Object.assign(this.params, d.params);
-        const turnedOn = (!prevOn && this.params.autoReseedOn);
-        const secChanged = (this.params.autoReseedSec !== prevSec);
-        if(this.params.autoReseedOn && (turnedOn || secChanged)){
-          this.autoReseedCounter=Math.max(1, Math.round((this.params.autoReseedSec||8)*sampleRate));
-        } else if(!this.params.autoReseedOn){
-          this.autoReseedCounter=Infinity;
+        this.seqStepSamples=this.computeSeqStepSamples();
+        const turnedOn = (!prevOn && this.params.seqOn);
+        const gridChanged = (this.params.seqBpm!==prevBpm || this.params.seqStepFrac!==prevFrac);
+        if(this.params.seqOn && (turnedOn || gridChanged)){
+          if(turnedOn) this.seqStepIndex=0;
+          this.seqCounter=1;
+        } else if(!this.params.seqOn){
+          this.seqCounter=Infinity;
         }
       }
       else if(d.type==='reseed') this.reseed();
     };
+  }
+  computeSeqStepSamples(){
+    const bpm=Math.max(20, this.params.seqBpm||120);
+    const frac=this.params.seqStepFrac||0.25;
+    return Math.max(1, Math.round(((60000/bpm)*frac)/1000*sampleRate));
   }
   reseed(){
     const reg=this.params.registerHz||220;
@@ -361,11 +466,15 @@ class EklipseProcessor extends AudioWorkletProcessor {
     const blockSize=output[0] ? output[0].length : 128;
     const twist=(this.params.twist||0)/100;
     for(let i=0;i<blockSize;i++){
-      if(this.params.autoReseedOn){
-        this.autoReseedCounter--;
-        if(this.autoReseedCounter<=0){
-          this.reseed();
-          this.autoReseedCounter=Math.max(1, Math.round((this.params.autoReseedSec||8)*sampleRate));
+      if(this.params.seqOn){
+        this.seqCounter--;
+        if(this.seqCounter<=0){
+          const pattern=this.params.seqPattern||[];
+          const len=pattern.length||16;
+          if(pattern[this.seqStepIndex]) this.reseed();
+          try{ this.port.postMessage({type:'step', index:this.seqStepIndex}); }catch(e){}
+          this.seqStepIndex=(this.seqStepIndex+1)%len;
+          this.seqCounter=this.seqStepSamples;
         }
       }
       if(this.samplesUntilTick<=0) this.tick();
@@ -409,6 +518,12 @@ registerProcessor('eklipse-processor', EklipseProcessor);
       workletNode = new AudioWorkletNode(audioCtx, 'eklipse-processor', {
         numberOfInputs:0, numberOfOutputs:1, outputChannelCount:[2]
       });
+      workletNode.port.onmessage=(e)=>{
+        const d=e.data;
+        if(d.type==='step'){
+          seqButtons.forEach((b,i)=> b.classList.toggle('playhead', i===d.index));
+        }
+      };
       workletReady=true;
       pushParams();
     }catch(err){
