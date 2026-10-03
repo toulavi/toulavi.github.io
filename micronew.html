@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>26</title>
+<title>28</title>
 <style>
   :root{
     --bg: #0b0c0a;
@@ -248,6 +248,12 @@
   #xyCv{width:160px;height:160px;touch-action:none;cursor:crosshair;}
   #starLabel{min-width:96px;}
   @media (max-height:760px){ #xyCv{width:120px;height:120px;} }
+  #xyCv{width:min(240px,27vh);height:min(240px,27vh);}
+  @media (max-height:760px){ #xyCv{width:min(180px,24vh);height:min(180px,24vh);} }
+  .cols>div{display:flex;flex-direction:column;align-self:stretch;min-height:0;}
+  #xySec{flex:1 1 0;min-height:120px;overflow:hidden;display:flex;justify-content:center;align-items:center;margin-bottom:20px;}
+  #xySec #xyCv{flex:none;}
+  @media (max-width:900px){ .cols>div{display:block;} #xySec{height:320px;flex:none;} }
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500&display=swap" rel="stylesheet">
 </head>
@@ -261,7 +267,7 @@
   </section>
 
   <div class="cols">
-    <div id="star"><canvas id="starCv" width="560" height="560"></canvas><div id="starLabel">no file</div><canvas id="xyCv" width="340" height="340"></canvas></div>
+    <div id="star"><canvas id="starCv" width="560" height="560"></canvas><div id="starLabel">no file</div></div>
     <div>
       <section>
         <div id="drop">
@@ -298,6 +304,7 @@
         <div class="statusline" id="status">NO FILE</div>
       </section>
 
+      <section id="xySec"><canvas id="xyCv" width="340" height="340"></canvas></section>
       <section id="recOutput">
         <label class="cap">RECORDED</label>
         <audio id="player" controls></audio>
@@ -727,6 +734,9 @@
   xyCv.addEventListener('pointerdown',e=>{ xyCv.setPointerCapture(e.pointerId); setXY(e); });
   xyCv.addEventListener('pointermove',e=>{ if(xyCv.hasPointerCapture(e.pointerId)) setXY(e); });
   drawXY();
+  const xySec=document.getElementById('xySec');
+  function fitXY(){ const z=Math.max(120,Math.min(xySec.clientWidth,xySec.clientHeight)); xyCv.style.width=z+'px'; xyCv.style.height=z+'px'; }
+  new ResizeObserver(fitXY).observe(xySec); fitXY();
   const loopLenEl=document.getElementById('loopLen');
   const valLoopLen=document.getElementById('valLoopLen');
   function applyLoopLen(){
@@ -855,7 +865,7 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
   }
 
   pers(){
-    const w=this.params.persW||[0,0,0,0,0], a=Math.min(2,this.params.instability/100);
+    const w=this.params.persW||[0,0,0,0,0], a=Math.min(2.4,this.params.instability/100*1.2);
     return {slip:w[0]*a,ramp:w[1]*a,skip:w[2]*a,hole:w[3]*a,flip:w[4]*a};
   }
 
@@ -888,7 +898,7 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
       const anchor=this.pickAnchor();
       const jitter=p.instability/100;
       this.seg={type:'loop', remaining:zoneLen, total:zoneLen, anchor, winLen, baseWinLen:winLen, tilePos:0,
-        reverseThis: Math.random()<Math.min(0.95,this.pers().flip*0.6), muteThis:false, muteG:1, slipDir:Math.random()<0.5?-1:1, rampDir:Math.random()<0.5?-1:1, sober, stereoMode:null, stereoFactor:0};
+        reverseThis: Math.random()<Math.min(0.95,this.pers().flip*0.6), muteThis:false, muteG:1, slipDir:Math.random()<0.5?-1:1, rampDir:Math.random()<0.5?-1:1, rampCurve:Math.random()*2-1, tileN:0, sober, stereoMode:null, stereoFactor:0};
       if(Math.random()*100<p.stereo){
         const amt=p.stereo/100;
         this.seg.stereoMode = Math.random()<0.5?'narrow':'wide';
@@ -955,7 +965,10 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
         const P=this.pers();
         const lo=Math.max(4,Math.round(seg.baseWinLen*0.12)), hi=Math.round(seg.baseWinLen*3);
         if(P.ramp>0){
-          seg.winLen=Math.round(seg.winLen*(1+seg.rampDir*Math.min(P.ramp,1.5)*0.3));
+          seg.tileN++;
+          const cv=Math.max(0.2,Math.min(3,1+seg.rampCurve*seg.tileN*0.4));
+          const g=Math.random()<0.2?0:(0.2+1.6*Math.random())*cv;
+          seg.winLen=Math.round(seg.winLen*Math.max(0.55,Math.min(1.8,1+seg.rampDir*Math.min(P.ramp,1.5)*0.3*g)));
           if(seg.winLen<=lo){ seg.winLen=lo; seg.rampDir=1; }
           if(seg.winLen>=hi){ seg.winLen=hi; seg.rampDir=-1; }
         }
