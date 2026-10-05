@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>43</title>
+<title>44</title>
 <style>
   :root{
     --bg: #0b0c0a;
@@ -416,6 +416,15 @@
   .zoneval #zoneMsControls input{width:40px;min-width:0;font-size:13px;padding:0;}
   .fxrow{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
   #colR .fxrow button{width:100%;height:36px;font-size:14px;box-sizing:border-box;}
+
+  /* ---- star in the centre of the pad ---- */
+  #center{position:relative;}
+  #starCv{position:absolute;left:50%;top:50%;width:124px;height:124px;transform:translate(-50%,-50%);pointer-events:none;z-index:0;}
+  /* ---- hover: every button only gets slightly darker, like the drop zone ---- */
+  button:hover{background:color-mix(in srgb,var(--fg) 7%,transparent)!important;color:var(--fg)!important;}
+  button.primary:hover{background:color-mix(in srgb,var(--fg) 82%,var(--bg))!important;color:var(--bg)!important;}
+  button:disabled:hover{background:transparent!important;color:var(--fg)!important;}
+  #liveDot.live+#btnPlay:hover,#recDot.rec+#btnRecord:hover{background:var(--ac)!important;color:var(--bg)!important;}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500&display=swap" rel="stylesheet">
 </head>
@@ -425,7 +434,7 @@
   <header>
     <span class="logo">microloop</span>
     <button id="btnTheme" class="smallbtn" type="button" style="display:none;">panel</button>
-    <div class="hr"><span class="live">live</span><canvas id="starCv" width="560" height="560"></canvas></div>
+    <div class="hr"><span class="live">live</span></div>
   </header>
 
   <section id="protocolWarning" style="display:none;border-color:var(--red);">
@@ -455,7 +464,7 @@
     <div id="colL">
       <div class="row">
         <div class="row-head"><label for="loopLen">LOOP LENGTH</label><span class="val" id="valLoopLen">120 ms</span></div>
-        <input type="range" id="loopLen" min="0" max="1000" value="436">
+        <input type="range" id="loopLen" min="0" max="1000" value="598">
       </div>
       <div class="moderow">
         <div class="modes">
@@ -483,7 +492,7 @@
       </div>
     </div>
 
-    <div id="center"><section id="xySec"><canvas id="xyCv" width="340" height="340"></canvas></section></div>
+    <div id="center"><canvas id="starCv" width="560" height="560"></canvas><section id="xySec"><canvas id="xyCv" width="340" height="340"></canvas></section></div>
 
     <div id="colR">
       <div class="row">
@@ -848,15 +857,15 @@
     if(analyser) analyser.getByteFrequencyData(fbuf);
     for(let i=0;i<NR;i++){
       const r=rays[i], ang=-Math.PI/2+i*2*Math.PI/NR+offs[i];
-      let lvl=0.6;
+      let lvl=1;
       if(analyser){
         const b0=2+Math.floor(Math.pow(i/NR,1.6)*100), b1=2+Math.floor(Math.pow((i+1)/NR,1.6)*100);
         let mx=0; for(let b=b0;b<=b1&&b<128;b++) if(fbuf[b]>mx) mx=fbuf[b];
         lvl=mx/255;
       }
-      const L=r.len*(0.3+0.7*lvl);
+      const L=0.35+0.65*r.len*(0.35+0.65*lvl);
       const a=TC.rainbow?Math.max(r.loop?0.9:0.55,r.a):Math.max(r.loop?0.5:0.28,r.a); r.a=Math.max(0,r.a-0.004);
-      sctx.strokeStyle=TC.rainbow?'hsla('+((i*360/NR+performance.now()*0.03)%360).toFixed(0)+',95%,62%,'+a.toFixed(3)+')':(r.loop?hexA(TC.ac,a.toFixed(3)):'rgba('+TC.rgb+','+a.toFixed(3)+')'); sctx.shadowBlur=TC.rainbow?14:0; sctx.shadowColor=sctx.strokeStyle; sctx.lineWidth=r.loop?5:2; sctx.lineCap='round';
+      sctx.strokeStyle=TC.rainbow?'hsla('+((i*360/NR+performance.now()*0.03)%360).toFixed(0)+',95%,62%,'+a.toFixed(3)+')':(r.loop?hexA(TC.ac,a.toFixed(3)):'rgba('+TC.rgb+','+a.toFixed(3)+')'); sctx.shadowBlur=TC.rainbow?14:0; sctx.shadowColor=sctx.strokeStyle; sctx.lineWidth=r.loop?9:3.5; sctx.lineCap='round';
       sctx.beginPath(); sctx.moveTo(c+Math.cos(ang)*6,c+Math.sin(ang)*6); sctx.lineTo(c+Math.cos(ang)*R*L,c+Math.sin(ang)*R*L); sctx.stroke();
     }
     requestAnimationFrame(drawStar);
@@ -922,10 +931,10 @@
   const loopLenEl=document.getElementById('loopLen');
   const valLoopLen=document.getElementById('valLoopLen');
   function applyLoopLen(){
-    const v=10*Math.pow(300,(parseFloat(loopLenEl.value)||0)/1000);
+    const v=Math.pow(3000,(parseFloat(loopLenEl.value)||0)/1000);
     winMinEl.value=(v*0.5).toFixed(1);
     winMaxEl.value=(v*2).toFixed(1);
-    valLoopLen.textContent=Math.round(v)+' ms';
+    valLoopLen.textContent=(v<10?v.toFixed(1):Math.round(v))+' ms';
     pushParamsToWorklet();
   }
   loopLenEl.addEventListener('input',applyLoopLen);
@@ -950,7 +959,7 @@
       drawWave();
       pushAnchorsToWorklet();
     }
-    loopLenEl.value=Math.round(1000*Math.log((40+Math.random()*260)/10)/Math.log(300)); applyLoopLen();
+    loopLenEl.value=Math.round(1000*Math.log(40+Math.random()*260)/Math.log(3000)); applyLoopLen();
     const zoneMin=50+Math.random()*350;
     const zoneMax=zoneMin+200+Math.random()*1800;
     zoneMinEl.value=Math.round(zoneMin);
@@ -964,7 +973,7 @@
 
   const btnResetParams=document.getElementById('btnResetParams');
   btnResetParams.addEventListener('click',()=>{
-    loopLenEl.value=436; applyLoopLen();
+    loopLenEl.value=598; applyLoopLen();
     zoneMinEl.value=150; zoneMaxEl.value=1500;
     zoneModeBpmEl.classList.add('primary'); zoneModeMsEl.classList.remove('primary');
     bpmValEl.value=120; gridJumpProbEl.value=15;
