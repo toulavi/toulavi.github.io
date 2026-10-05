@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MICROLOOP LIVE</title>
+<title>41</title>
 <style>
   :root{
     --bg: #0b0c0a;
@@ -991,7 +991,7 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
     this.anchors=[];
     this.params={winMinMs:8,winMaxMs:60,zoneMinMs:150,zoneMaxMs:1500,zoneBpmMode:0,bpm:120,noteAlts:[1],gridJumpProb:15,density:100,instability:100,crush:30,bleed:100,sober:15,stereo:30,xfadeMs:3,filterOn:1,persW:[0.33,0.33,0.33,0.33,0.33],transposeSemi:0};
     this.globalRate=1;
-    this.curNote=null;
+    this.curNote=null; this.slipPhase=0; this.slipDirG=1;
     this.readCursor=0;
     this.seg=null;
     this.chanState=[{filterY:0,crushHeld:0,crushCounter:0},{filterY:0,crushHeld:0,crushCounter:0}];
@@ -1038,6 +1038,12 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
     return Math.floor(this.srcLength*0.4);
   }
 
+  pickOther(cur){
+    const a=this.anchors.filter(x=>Math.abs(x-cur)>this.sr*0.05);
+    if(a.length>0) return a[Math.floor(Math.random()*a.length)];
+    return Math.floor(this.srcLength*(0.03+Math.random()*0.94));
+  }
+
   readInterp(pos){
     const len=this.srcLength;
     const i0=Math.floor(pos)%len;
@@ -1080,10 +1086,11 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
       const minWinLen=Math.max(4,Math.round(p.winMinMs/1000*this.sr));
       const maxWinLen=Math.max(minWinLen+1,Math.round(p.winMaxMs/1000*this.sr));
       const winLen=Math.round(minWinLen+Math.random()*(maxWinLen-minWinLen));
-      const anchor=this.pickAnchor();
+      if(Math.random()<0.15) this.slipDirG=-this.slipDirG;
+      const anchor=(this.pickAnchor()+Math.round(this.slipPhase)+this.srcLength)%this.srcLength;
       const jitter=p.instability/100;
       this.seg={type:'loop', remaining:zoneLen, total:zoneLen, anchor, winLen, baseWinLen:winLen, tilePos:0,
-        reverseThis: Math.random()<Math.min(0.98,this.pers().flip*0.9), muteThis:false, muteG:1, slipDir:Math.random()<0.5?-1:1, rampDir:Math.random()<0.5?-1:1, rampCurve:Math.random()*2-1, tileN:0, sober, stereoMode:null, stereoFactor:0};
+        reverseThis: Math.random()<Math.min(0.98,this.pers().flip*0.9), muteThis:false, muteG:1, slipDir:this.slipDirG, rampDir:Math.random()<0.5?-1:1, rampCurve:Math.random()*2-1, tileN:0, skipEvery:2+Math.floor(Math.random()*3), skipN:0, sober, stereoMode:null, stereoFactor:0};
       if(Math.random()*100<p.stereo){
         const amt=p.stereo/100;
         this.seg.stereoMode = Math.random()<0.5?'narrow':'wide';
@@ -1157,8 +1164,15 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
           if(seg.winLen<=lo){ seg.winLen=lo; seg.rampDir=1; }
           if(seg.winLen>=hi){ seg.winLen=hi; seg.rampDir=-1; }
         }
-        if(P.slip>0) seg.anchor=(((seg.anchor+Math.round(seg.winLen*Math.min(P.slip,2.5)*0.4*seg.slipDir))%this.srcLength)+this.srcLength)%this.srcLength;
-        if(P.skip>0 && Math.random()<Math.min(0.95,P.skip*0.9)) seg.anchor=this.pickAnchor();
+        if(P.slip>0){
+          const st=Math.round(seg.winLen*Math.min(P.slip,2.5)*0.12*seg.slipDir);
+          seg.anchor=(((seg.anchor+st)%this.srcLength)+this.srcLength)%this.srcLength;
+          this.slipPhase=(this.slipPhase+st)%this.srcLength;
+        } else this.slipPhase=0;
+        if(P.skip>0){
+          seg.skipN++;
+          if(seg.skipN>=seg.skipEvery){ seg.skipN=0; if(Math.random()<Math.min(0.97,P.skip*1.1)) seg.anchor=this.pickOther(seg.anchor); }
+        }
         seg.muteThis=Math.random()<Math.min(0.9,P.hole*0.8);
         seg.reverseThis=Math.random()<Math.min(0.98,P.flip*0.9);
         seg.tilePos=0;
