@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>42</title>
+<title>43</title>
 <style>
   :root{
     --bg: #0b0c0a;
@@ -1038,6 +1038,34 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
     return Math.floor(this.srcLength*0.4);
   }
 
+  decide(seg){
+    const P=this.pers();
+    const lo=Math.max(4,Math.round(seg.baseWinLen*0.12)), hi=Math.round(seg.baseWinLen*3);
+    if(P.ramp>0){
+      seg.tileN++;
+      const cv=Math.max(0.2,Math.min(3,1+seg.rampCurve*seg.tileN*0.4));
+      const g=Math.random()<0.2?0:(0.2+1.6*Math.random())*cv;
+      seg.winLen=Math.round(seg.winLen*Math.max(0.4,Math.min(2.2,1+seg.rampDir*Math.min(P.ramp,2.5)*0.4*g)));
+      if(seg.winLen<=lo){ seg.winLen=lo; seg.rampDir=1; }
+      if(seg.winLen>=hi){ seg.winLen=hi; seg.rampDir=-1; }
+    }
+    if(P.slip>0){
+      const st=Math.round(seg.winLen*Math.min(P.slip,2.5)*0.12*seg.slipDir);
+      seg.anchor=(((seg.anchor+st)%this.srcLength)+this.srcLength)%this.srcLength;
+      this.slipPhase=(this.slipPhase+st)%this.srcLength;
+    } else this.slipPhase=0;
+    if(P.oct>0){
+      if(Math.random()>0.45){
+        const pj=Math.min(0.85,P.oct*0.6);
+        if(seg.octMul!==1) seg.octMul=Math.random()<0.5 ? 1 : (Math.random()<0.5?2:0.5);
+        else seg.octMul=Math.random()<pj ? (Math.random()<0.5?2:0.5) : 1;
+      }
+    } else seg.octMul=1;
+    this.lastOct=seg.octMul;
+    seg.muteThis=Math.random()<Math.min(0.9,P.hole*0.8);
+    seg.reverseThis=Math.random()<Math.min(0.98,P.flip*0.9);
+  }
+
   pickOther(cur){
     const a=this.anchors.filter(x=>Math.abs(x-cur)>this.sr*0.05);
     if(a.length>0) return a[Math.floor(Math.random()*a.length)];
@@ -1090,7 +1118,8 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
       const anchor=(this.pickAnchor()+Math.round(this.slipPhase)+this.srcLength)%this.srcLength;
       const jitter=p.instability/100;
       this.seg={type:'loop', remaining:zoneLen, total:zoneLen, anchor, winLen, baseWinLen:winLen, tilePos:0,
-        reverseThis: Math.random()<Math.min(0.98,this.pers().flip*0.9), muteThis:false, muteG:1, slipDir:this.slipDirG, rampDir:Math.random()<0.5?-1:1, rampCurve:Math.random()*2-1, tileN:0, octMul:1, sober, stereoMode:null, stereoFactor:0};
+        reverseThis: Math.random()<Math.min(0.98,this.pers().flip*0.9), muteThis:false, muteG:1, slipDir:this.slipDirG, rampDir:Math.random()<0.5?-1:1, rampCurve:Math.random()*2-1, tileN:0, octMul:this.lastOct||1, sober, stereoMode:null, stereoFactor:0};
+      this.decide(this.seg);
       if(Math.random()*100<p.stereo){
         const amt=p.stereo/100;
         this.seg.stereoMode = Math.random()<0.5?'narrow':'wide';
@@ -1154,28 +1183,7 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
       this.readCursor=(this.readCursor+this.globalRate)%this.srcLength;
     } else {
       if(seg.tilePos>=seg.winLen){
-        const P=this.pers();
-        const lo=Math.max(4,Math.round(seg.baseWinLen*0.12)), hi=Math.round(seg.baseWinLen*3);
-        if(P.ramp>0){
-          seg.tileN++;
-          const cv=Math.max(0.2,Math.min(3,1+seg.rampCurve*seg.tileN*0.4));
-          const g=Math.random()<0.2?0:(0.2+1.6*Math.random())*cv;
-          seg.winLen=Math.round(seg.winLen*Math.max(0.4,Math.min(2.2,1+seg.rampDir*Math.min(P.ramp,2.5)*0.4*g)));
-          if(seg.winLen<=lo){ seg.winLen=lo; seg.rampDir=1; }
-          if(seg.winLen>=hi){ seg.winLen=hi; seg.rampDir=-1; }
-        }
-        if(P.slip>0){
-          const st=Math.round(seg.winLen*Math.min(P.slip,2.5)*0.12*seg.slipDir);
-          seg.anchor=(((seg.anchor+st)%this.srcLength)+this.srcLength)%this.srcLength;
-          this.slipPhase=(this.slipPhase+st)%this.srcLength;
-        } else this.slipPhase=0;
-        if(P.oct>0){
-          if(Math.random()>0.45){
-            seg.octMul=(Math.random()<Math.min(0.95,P.oct*0.9)) ? (Math.random()<0.5?2:0.5) : 1;
-          }
-        } else seg.octMul=1;
-        seg.muteThis=Math.random()<Math.min(0.9,P.hole*0.8);
-        seg.reverseThis=Math.random()<Math.min(0.98,P.flip*0.9);
+        this.decide(seg);
         seg.tilePos=0;
       }
       const contPos = seg.reverseThis ? (seg.winLen-1-seg.tilePos) : seg.tilePos;
