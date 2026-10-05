@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>37</title>
+<title>MICROLOOP LIVE</title>
 <style>
   :root{
     --bg: #0b0c0a;
@@ -414,6 +414,8 @@
   /* ---- ms mode: compact min/max in one row so nothing moves ---- */
   .zoneval #zoneMsControls{flex-direction:row;flex-wrap:nowrap;align-items:center;gap:4px;}
   .zoneval #zoneMsControls input{width:40px;min-width:0;font-size:13px;padding:0;}
+  .fxrow{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  #colR .fxrow button{width:100%;height:36px;font-size:14px;box-sizing:border-box;}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500&display=swap" rel="stylesheet">
 </head>
@@ -440,7 +442,7 @@
       <div id="waveWrap">
         <canvas id="wave" width="1400" height="110"></canvas>
         <div class="anchorbar">
-          <span class="n" id="anchorCount">ANCHORS 0</span>
+          <span class="n" id="anchorCount">ANCHORS 0/5</span>
           <div style="display:flex;gap:8px;align-items:center;">
             <input type="number" id="anchorRandCount" value="5" min="1" max="20" style="width:56px;padding:5px 6px;">
             <button class="smallbtn" id="btnRandomAnchors">RANDOM</button>
@@ -453,7 +455,7 @@
     <div id="colL">
       <div class="row">
         <div class="row-head"><label for="loopLen">LOOP LENGTH</label><span class="val" id="valLoopLen">120 ms</span></div>
-        <input type="range" id="loopLen" min="10" max="600" value="120">
+        <input type="range" id="loopLen" min="0" max="1000" value="436">
       </div>
       <div class="moderow">
         <div class="modes">
@@ -493,10 +495,10 @@
         <input type="range" id="density" min="0" max="100" value="90">
       </div>
       <div class="row">
-        <div class="row-head"><label for="instability">INSTABILITY</label><span class="val" id="valInstability">100%</span></div>
+        <div class="row-head"><label for="instability">INSTABILITY</label><span class="val" id="valInstability">50%</span></div>
         <input type="range" id="instability" min="0" max="200" value="100">
       </div>
-      <button id="btnFilter" type="button" class="primary">FILTER</button>
+      <div class="fxrow"><button id="btnFilter" type="button" class="primary">FILTER</button><button id="btnCrush" type="button" class="primary">BITCRUSH</button></div>
     </div>
 
     <button id="btnRandom">RANDOMIZE</button>
@@ -715,10 +717,9 @@
     }
   }
 
+  function anchorMax(){ return Math.max(1,Math.min(20,parseInt(document.getElementById('anchorRandCount').value)||3)); }
   function updateAnchorLabel(){
-    anchorCountEl.textContent = anchors.length>0
-      ? `ANCHORS ${anchors.length}`
-      : 'ANCHORS 0';
+    anchorCountEl.textContent = `ANCHORS ${anchors.length}/${anchorMax()}`;
   }
 
   function pushAnchorsToWorklet(){
@@ -731,6 +732,7 @@
     const xRatio=(e.clientX-rect.left)/rect.width;
     const sample=Math.floor(xRatio*audioBuffer.length);
     anchors.push(Math.max(0,Math.min(audioBuffer.length-1,sample)));
+    while(anchors.length>anchorMax()) anchors.shift();
     updateAnchorLabel();
     drawWave();
     pushAnchorsToWorklet();
@@ -751,6 +753,12 @@
     updateAnchorLabel();
     drawWave();
     pushAnchorsToWorklet();
+  });
+
+  anchorRandCountEl.addEventListener('input',()=>{
+    const mx=anchorMax();
+    if(anchors.length>mx) anchors=anchors.slice(anchors.length-mx);
+    updateAnchorLabel(); drawWave(); pushAnchorsToWorklet();
   });
 
   btnNormalize.addEventListener('click',()=>{
@@ -790,7 +798,7 @@
       gridJumpProb: parseFloat(gridJumpProbEl.value),
       density: parseFloat(densityEl.value),
       instability: parseFloat(instabilityEl.value),
-      crush: parseFloat(crushEl.value),
+      crush: btnCrushEl.classList.contains('primary')?parseFloat(crushEl.value):0,
       bleed: Math.min(100, parseFloat(instabilityEl.value)),
       sober: parseFloat(soberEl.value),
       stereo: parseFloat(stereoEl.value),
@@ -807,7 +815,7 @@
 
   function syncLabels(){
     valDensity.textContent=densityEl.value+'%';
-    valInstability.textContent=instabilityEl.value+'%';
+    valInstability.textContent=Math.round(instabilityEl.value/2)+'%';
     valCrush.textContent=crushEl.value+'%';
     valSober.textContent=soberEl.value+'%';
     valStereo.textContent=stereoEl.value+'%';
@@ -856,11 +864,11 @@
   drawStar();
   const xyCv=document.getElementById('xyCv'), xctx=xyCv.getContext('2d');
   const PN=['slip','ramp','skip','hole','flip'];
-  const PP=PN.map((_,i)=>{const a=-Math.PI/2+i*2*Math.PI/5; return [Math.cos(a)*0.72,Math.sin(a)*0.72];});
+  const PP=PN.map((_,i)=>{const a=-Math.PI/2+i*2*Math.PI/5; return [Math.cos(a)*0.95,Math.sin(a)*1.06+0.101];});
   let xyPos=[0,0];
-  function persWeights(){ return PP.map(p=>Math.pow(Math.max(0,1-Math.hypot(xyPos[0]-p[0],xyPos[1]-p[1])/1.05),1.3)); }
+  function persWeights(){ return PP.map(p=>Math.pow(Math.max(0,1-Math.hypot(xyPos[0]-p[0],xyPos[1]-p[1])/1.7),1.3)); }
   function drawXY(){
-    const W=xyCv.width, c=W/2, K=W*0.41, w=persWeights();
+    const W=xyCv.width, c=W/2, K=W/2-8, w=persWeights();
     xctx.clearRect(0,0,W,W);
     xctx.strokeStyle=TC.hex; xctx.lineWidth=2; xctx.strokeRect(1,1,W-2,W-2);
     const cx=xyPos[0]*K+c, cy=xyPos[1]*K+c;
@@ -871,13 +879,13 @@
       xctx.beginPath(); xctx.moveTo(cx,cy); xctx.lineTo(px,py); xctx.stroke();
       xctx.fillStyle='rgba('+TC.rgb+','+(0.4+0.6*w[i]).toFixed(3)+')';
       xctx.beginPath(); xctx.arc(px,py,5+9*w[i],0,Math.PI*2); xctx.fill();
-      xctx.fillText(PN[i],c+p[0]*K*1.28,c+p[1]*K*1.28);
+      const ux0=-p[0], uy0=0.101-p[1], un=Math.hypot(ux0,uy0)||1, off=18+22*Math.abs(ux0/un); xctx.fillText(PN[i],px+ux0/un*off,py+uy0/un*off);
     });
     xctx.fillStyle=TC.ac; xctx.beginPath(); xctx.arc(cx,cy,8,0,Math.PI*2); xctx.fill();
   }
   function setXY(e){
     const r=xyCv.getBoundingClientRect(), cl=v=>Math.max(-1,Math.min(1,v));
-    xyPos=[cl(((e.clientX-r.left)/r.width)*2-1), cl(((e.clientY-r.top)/r.height)*2-1)];
+    const W=xyCv.width, K=W/2-8; xyPos=[cl((((e.clientX-r.left)/r.width)*W-W/2)/K), cl((((e.clientY-r.top)/r.height)*W-W/2)/K)];
     drawXY(); pushParamsToWorklet();
   }
   xyCv.addEventListener('pointerdown',e=>{ xyCv.setPointerCapture(e.pointerId); setXY(e); });
@@ -914,7 +922,7 @@
   const loopLenEl=document.getElementById('loopLen');
   const valLoopLen=document.getElementById('valLoopLen');
   function applyLoopLen(){
-    const v=parseFloat(loopLenEl.value)||120;
+    const v=10*Math.pow(300,(parseFloat(loopLenEl.value)||0)/1000);
     winMinEl.value=(v*0.5).toFixed(1);
     winMaxEl.value=(v*2).toFixed(1);
     valLoopLen.textContent=Math.round(v)+' ms';
@@ -927,6 +935,9 @@
     pushParamsToWorklet();
   }
   btnFilterEl.addEventListener('click',()=>setFilter(!btnFilterEl.classList.contains('primary')));
+  const btnCrushEl=document.getElementById('btnCrush');
+  function setCrush(on){ btnCrushEl.classList.toggle('primary',on); pushParamsToWorklet(); }
+  btnCrushEl.addEventListener('click',()=>setCrush(!btnCrushEl.classList.contains('primary')));
   syncLabels();
 
   function randomizeParams(){
@@ -939,7 +950,7 @@
       drawWave();
       pushAnchorsToWorklet();
     }
-    loopLenEl.value=Math.round(40+Math.random()*260); applyLoopLen();
+    loopLenEl.value=Math.round(1000*Math.log((40+Math.random()*260)/10)/Math.log(300)); applyLoopLen();
     const zoneMin=50+Math.random()*350;
     const zoneMax=zoneMin+200+Math.random()*1800;
     zoneMinEl.value=Math.round(zoneMin);
@@ -953,14 +964,14 @@
 
   const btnResetParams=document.getElementById('btnResetParams');
   btnResetParams.addEventListener('click',()=>{
-    loopLenEl.value=120; applyLoopLen();
+    loopLenEl.value=436; applyLoopLen();
     zoneMinEl.value=150; zoneMaxEl.value=1500;
     zoneModeBpmEl.classList.add('primary'); zoneModeMsEl.classList.remove('primary');
     bpmValEl.value=120; gridJumpProbEl.value=15;
     noteAltEls.forEach(el=>{ el.classList.toggle('primary', el.dataset.value==='1'); });
     syncZoneModeUI();
     densityEl.value=90; instabilityEl.value=100;
-    crushEl.value=30; setFilter(true); xyPos=[0,0]; drawXY();
+    crushEl.value=30; setFilter(true); setCrush(true); xyPos=[0,0]; drawXY();
     soberEl.value=15; stereoEl.value=30; xfadeEl.value=3;
     transposeEl.value=0; valTranspose.textContent='±0 st';
     syncLabels();
@@ -978,7 +989,7 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
     this.loaded=false;
     this.sr=sampleRate;
     this.anchors=[];
-    this.params={winMinMs:8,winMaxMs:60,zoneMinMs:150,zoneMaxMs:1500,zoneBpmMode:0,bpm:120,noteAlts:[1],gridJumpProb:15,density:100,instability:100,crush:30,bleed:100,sober:15,stereo:30,xfadeMs:3,filterOn:1,persW:[0.22,0.22,0.22,0.22,0.22],transposeSemi:0};
+    this.params={winMinMs:8,winMaxMs:60,zoneMinMs:150,zoneMaxMs:1500,zoneBpmMode:0,bpm:120,noteAlts:[1],gridJumpProb:15,density:100,instability:100,crush:30,bleed:100,sober:15,stereo:30,xfadeMs:3,filterOn:1,persW:[0.33,0.33,0.33,0.33,0.33],transposeSemi:0};
     this.globalRate=1;
     this.curNote=null;
     this.readCursor=0;
@@ -1039,7 +1050,7 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
   }
 
   pers(){
-    const w=this.params.persW||[0,0,0,0,0], a=Math.min(2.4,this.params.instability/100*1.2);
+    const w=this.params.persW||[0,0,0,0,0], a=Math.min(3.6,this.params.instability/100*1.8);
     return {slip:w[0]*a,ramp:w[1]*a,skip:w[2]*a,hole:w[3]*a,flip:w[4]*a};
   }
 
@@ -1072,7 +1083,7 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
       const anchor=this.pickAnchor();
       const jitter=p.instability/100;
       this.seg={type:'loop', remaining:zoneLen, total:zoneLen, anchor, winLen, baseWinLen:winLen, tilePos:0,
-        reverseThis: Math.random()<Math.min(0.95,this.pers().flip*0.6), muteThis:false, muteG:1, slipDir:Math.random()<0.5?-1:1, rampDir:Math.random()<0.5?-1:1, rampCurve:Math.random()*2-1, tileN:0, sober, stereoMode:null, stereoFactor:0};
+        reverseThis: Math.random()<Math.min(0.98,this.pers().flip*0.9), muteThis:false, muteG:1, slipDir:Math.random()<0.5?-1:1, rampDir:Math.random()<0.5?-1:1, rampCurve:Math.random()*2-1, tileN:0, sober, stereoMode:null, stereoFactor:0};
       if(Math.random()*100<p.stereo){
         const amt=p.stereo/100;
         this.seg.stereoMode = Math.random()<0.5?'narrow':'wide';
@@ -1142,14 +1153,14 @@ class MalfunctionProcessor extends AudioWorkletProcessor {
           seg.tileN++;
           const cv=Math.max(0.2,Math.min(3,1+seg.rampCurve*seg.tileN*0.4));
           const g=Math.random()<0.2?0:(0.2+1.6*Math.random())*cv;
-          seg.winLen=Math.round(seg.winLen*Math.max(0.55,Math.min(1.8,1+seg.rampDir*Math.min(P.ramp,1.5)*0.3*g)));
+          seg.winLen=Math.round(seg.winLen*Math.max(0.4,Math.min(2.2,1+seg.rampDir*Math.min(P.ramp,2.5)*0.4*g)));
           if(seg.winLen<=lo){ seg.winLen=lo; seg.rampDir=1; }
           if(seg.winLen>=hi){ seg.winLen=hi; seg.rampDir=-1; }
         }
-        if(P.slip>0) seg.anchor=(((seg.anchor+Math.round(seg.winLen*Math.min(P.slip,1.5)*0.35*seg.slipDir))%this.srcLength)+this.srcLength)%this.srcLength;
-        if(P.skip>0 && Math.random()<Math.min(0.9,P.skip*0.6)) seg.anchor=this.pickAnchor();
-        seg.muteThis=Math.random()<Math.min(0.9,P.hole*0.55);
-        seg.reverseThis=Math.random()<Math.min(0.95,P.flip*0.6);
+        if(P.slip>0) seg.anchor=(((seg.anchor+Math.round(seg.winLen*Math.min(P.slip,2.5)*0.4*seg.slipDir))%this.srcLength)+this.srcLength)%this.srcLength;
+        if(P.skip>0 && Math.random()<Math.min(0.95,P.skip*0.9)) seg.anchor=this.pickAnchor();
+        seg.muteThis=Math.random()<Math.min(0.9,P.hole*0.8);
+        seg.reverseThis=Math.random()<Math.min(0.98,P.flip*0.9);
         seg.tilePos=0;
       }
       const contPos = seg.reverseThis ? (seg.winLen-1-seg.tilePos) : seg.tilePos;
