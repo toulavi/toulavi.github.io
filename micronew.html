@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>47</title>
+<title>50</title>
 <style>
   :root{
     --bg: #0b0c0a;
@@ -440,7 +440,7 @@
   <header>
     <span class="logo">microloop</span>
     <button id="btnTheme" class="smallbtn" type="button" style="display:none;">panel</button>
-    <div class="hr"><button id="btnAudioReset" class="smallbtn" type="button">RESET AUDIO</button><span class="live">live</span></div>
+    <div class="hr"><span class="live">live</span></div>
   </header>
 
   <section id="protocolWarning" style="display:none;border-color:var(--red);">
@@ -687,15 +687,15 @@
   let anchors=[];
   let audioCtx=null;
   let workletNode=null;
-  let workletReady=false; let needRebuild=false;
+  let workletReady=false;
   let isPlaying=false;
   let mediaRecorder=null;
   let recChunks=[];
   let recDest=null;
   let decodeCtx=null;
   async function decodeAudioDataSafely(arrayBuffer){
-    audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)();
-    return await audioCtx.decodeAudioData(arrayBuffer);
+    decodeCtx = decodeCtx || new (window.AudioContext||window.webkitAudioContext)();
+    return await decodeCtx.decodeAudioData(arrayBuffer);
   }
 
   // ---------------- 波形描画・アンカー ----------------
@@ -879,11 +879,11 @@
   drawStar();
   const xyCv=document.getElementById('xyCv'), xctx=xyCv.getContext('2d');
   const PN=['slip','ramp','oct','hole','flip'];
-  const PP=PN.map((_,i)=>{const a=-Math.PI/2+i*2*Math.PI/5; return [Math.cos(a),Math.sin(a)];});
+  const PP=PN.map((_,i)=>{const a=-Math.PI/2+i*2*Math.PI/5; return [Math.cos(a)*1.04,Math.sin(a)*1.04+0.0993];});
   let xyPos=[0,0];
   function persWeights(){
     const r=Math.hypot(xyPos[0],xyPos[1]), t=Math.max(0,Math.min(1,(r-0.14)/0.26)), g=t*t*(3-2*t);
-    return PP.map(p=>g*Math.pow(Math.max(0,1-Math.hypot(xyPos[0]-p[0],xyPos[1]-p[1])/1.1756),1.2));
+    return PP.map(p=>g*Math.pow(Math.max(0,1-Math.hypot(xyPos[0]-p[0],xyPos[1]-p[1])/1.2226),1.2));
   }
   function drawXY(){
     const W=xyCv.width, c=W/2, K=W/2-8, w=persWeights();
@@ -898,7 +898,7 @@
       xctx.beginPath(); xctx.moveTo(cx,cy); xctx.lineTo(px,py); xctx.stroke();
       xctx.fillStyle='rgba('+TC.rgb+','+(0.4+0.6*w[i]).toFixed(3)+')';
       xctx.beginPath(); xctx.arc(px,py,5+9*w[i],0,Math.PI*2); xctx.fill();
-      const ux0=-p[0], uy0=-p[1], un=Math.hypot(ux0,uy0)||1, off=26+30*Math.abs(ux0/un), lx=px+ux0/un*off, ly=py+uy0/un*off;
+      const ux0=-p[0], uy0=0.0993-p[1], un=Math.hypot(ux0,uy0)||1, off=26+30*Math.abs(ux0/un), lx=px+ux0/un*off, ly=py+uy0/un*off;
       xctx.font='500 20px Jost, Futura, sans-serif'; xctx.fillText(PN[i],lx,ly-9);
       xctx.font='400 15px Jost, Futura, sans-serif'; xctx.fillText(Math.round(w[i]*100)+'%',lx,ly+10);
       xctx.font='500 22px Jost, Futura, sans-serif';
@@ -1324,7 +1324,6 @@ registerProcessor('malfunction-processor', MalfunctionProcessor);
     });
       workletNode.port.onmessage=onSeg;
     workletReady=true;
-    audioCtx.onstatechange=()=>{ if(isPlaying && audioCtx.state!=='running') statusEl.textContent='AUDIO '+audioCtx.state.toUpperCase()+' - PRESS RESET AUDIO'; };
   }
 
   function handleFile(file){
@@ -1387,54 +1386,18 @@ registerProcessor('malfunction-processor', MalfunctionProcessor);
   });
 
   // ---------------- 再生/停止 ----------------
-  // Rebuild the whole audio engine (needs to run inside a click so Safari lets it start)
-  async function rebuildAudio(){
-    if(mediaRecorder && mediaRecorder.state!=='inactive') try{ mediaRecorder.stop(); }catch(e){}
-    try{ if(workletNode){ workletNode.disconnect(); workletNode.port.onmessage=null; } }catch(e){}
-    const old=audioCtx;
-    audioCtx=null; workletNode=null; workletReady=false; analyser=null; isPlaying=false;
-    try{ if(old){ old.onstatechange=null; old.close(); } }catch(e){}
-    audioCtx=new (window.AudioContext||window.webkitAudioContext)();
-    const rp=audioCtx.resume();
-    await ensureWorklet();
-    try{ await rp; }catch(e){}
-    if(audioBuffer){
-      const ch0=audioBuffer.getChannelData(0);
-      const ch1=audioBuffer.numberOfChannels>1 ? audioBuffer.getChannelData(1) : ch0;
-      workletNode.port.postMessage({type:'load', channels:[ch0, ch1]});
-      pushParamsToWorklet(); pushAnchorsToWorklet();
-    }
-    needRebuild=false;
-  }
-  function startWatchdog(){
-    const ctx=audioCtx, t0=ctx.currentTime;
-    setTimeout(()=>{
-      if(!isPlaying || audioCtx!==ctx) return;
-      if(ctx.state!=='running' || ctx.currentTime-t0<0.2){ needRebuild=true; statusEl.textContent='AUDIO STALLED - PRESS STOP, THEN PLAY'; }
-    },1500);
-  }
-  document.getElementById('btnAudioReset').addEventListener('click',async ()=>{
-    statusEl.textContent='RESETTING AUDIO...';
-    await rebuildAudio();
-    liveDot.classList.remove('live');
-    btnPlay.disabled=!audioBuffer; btnStop.disabled=true; btnRecord.disabled=true;
-    statusEl.textContent=audioBuffer ? 'AUDIO RESET - PRESS PLAY' : 'AUDIO RESET';
-  });
   btnPlay.addEventListener('click',async ()=>{
-    if(audioCtx) audioCtx.resume();
-    if(needRebuild) await rebuildAudio();
     await ensureWorklet();
     await audioCtx.resume();
     workletNode.connect(audioCtx.destination);
-    analyser=analyser||audioCtx.createAnalyser(); analyser.fftSize=256; analyser.smoothingTimeConstant=0.75;
-    workletNode.connect(analyser);
+      analyser=audioCtx.createAnalyser(); analyser.fftSize=256; analyser.smoothingTimeConstant=0.75;
+      workletNode.connect(analyser);
     isPlaying=true;
     liveDot.classList.add('live');
     btnPlay.disabled=true;
     btnStop.disabled=false;
     btnRecord.disabled=false;
     statusEl.textContent='PLAYING';
-    startWatchdog();
   });
   btnStop.addEventListener('click',()=>{
     if(workletNode) workletNode.disconnect();
