@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>51</title>
+<title>52</title>
 <style>
 :root{--bg:#f5f0e5;--fg:#252620;--ac:#d95038;--surface:#ebe8df;--quiet:#77776d;--line:#d8d5ca;--ink:var(--fg);--ink-dim:var(--quiet);--phosphor:var(--fg);--phosphor-dim:var(--quiet);--red:var(--ac);--mono:"Jost","Avenir Next","Hiragino Sans",system-ui,sans-serif}
 *{box-sizing:border-box} [hidden]{display:none!important}
@@ -75,10 +75,10 @@ input[type=range]::-moz-range-thumb{width:8px;height:8px;border:2px solid var(--
 .cap{font-size:11px;letter-spacing:1px;color:var(--quiet)}
 audio{width:100%;margin-top:12px;height:36px}#filenameInput{width:100%}.dl{display:inline-block;margin-top:12px;color:var(--ac);font-size:12px;text-decoration:none;cursor:pointer}
 #params{display:none!important}#protocolWarning{padding:14px;background:var(--surface);border-radius:5px;margin-bottom:18px}#protocolWarning p{font-size:11px!important;color:var(--quiet)!important}
-@media(max-width:1000px){body{padding:16px}.wrap{padding:28px}.cols{grid-template-columns:minmax(200px,1fr) minmax(220px,1fr) minmax(200px,1fr);gap:24px}#xySec{height:260px}}
-@media(max-width:760px){body{padding:12px}.wrap{padding:24px 20px}.cols{grid-template-columns:1fr 1fr;gap:24px}#center{grid-column:1/-1;grid-row:2;min-height:270px}#xySec{height:260px}#colL{grid-column:1;grid-row:3}#colR{grid-column:2;grid-row:3}#botC{grid-column:1/-1;grid-row:4;max-width:340px;width:100%;justify-self:center}#btnRandom{grid-column:1;grid-row:5}#btnResetParams{grid-column:2;grid-row:5}.logo{font-size:26px}.live{letter-spacing:1px}}
-@media(max-width:460px){body{padding:8px}.wrap{padding:20px 16px}.cols{grid-template-columns:1fr;gap:28px}#band,#center,#colL,#colR,#botC{grid-column:1}#colL{grid-row:3}#colR{grid-row:4}#botC{grid-row:5}#btnRandom{grid-column:1;grid-row:6}#btnResetParams{grid-column:1;grid-row:6}.live{font-size:9px;max-width:100px;text-align:right}.anchorbar{gap:8px}.anchorbar>div{gap:5px!important}#anchorRandCount{width:40px!important}.smallbtn{padding:6px 8px}#colL,#colR{gap:22px}.transport button,.noteAlt{min-height:40px}.modeBtn,.fxrow button{min-height:40px}}
-
+/* Scale the complete instrument to the browser's available viewport. */
+html,body{width:100%;height:100%;overflow:hidden}
+body{padding:0}
+.wrap{position:absolute;left:0;top:0;width:1120px;max-width:none;margin:0;transform-origin:0 0}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500&display=swap" rel="stylesheet">
 </head>
@@ -529,11 +529,11 @@ audio{width:100%;margin-top:12px;height:36px}#filenameInput{width:100%}.dl{displ
   drawStar();
   const xyCv=document.getElementById('xyCv'), xctx=xyCv.getContext('2d');
   const PN=['slip','ramp','oct','hole','flip'];
-  const PP=PN.map((_,i)=>{const a=-Math.PI/2+i*2*Math.PI/5; return [Math.cos(a)*1.04,Math.sin(a)*1.04+0.0993];});
+  const PP=PN.map((_,i)=>{const a=-Math.PI/2+i*2*Math.PI/5; return [Math.cos(a)*0.9,Math.sin(a)*0.9];});
   let xyPos=[0,0];
   function persWeights(){
     const r=Math.hypot(xyPos[0],xyPos[1]), t=Math.max(0,Math.min(1,(r-0.14)/0.26)), g=t*t*(3-2*t);
-    return PP.map(p=>g*Math.pow(Math.max(0,1-Math.hypot(xyPos[0]-p[0],xyPos[1]-p[1])/1.2226),1.2));
+    return PP.map(p=>g*Math.pow(Math.max(0,1-Math.hypot(xyPos[0]-p[0],xyPos[1]-p[1])/1.058),1.2));
   }
   function drawXY(){
     const W=xyCv.width, c=W/2, K=W/2-8, w=persWeights();
@@ -548,16 +548,35 @@ audio{width:100%;margin-top:12px;height:36px}#filenameInput{width:100%}.dl{displ
       xctx.beginPath(); xctx.moveTo(cx,cy); xctx.lineTo(px,py); xctx.stroke();
       xctx.fillStyle='rgba('+TC.rgb+','+(0.4+0.6*w[i]).toFixed(3)+')';
       xctx.beginPath(); xctx.arc(px,py,3+5*w[i],0,Math.PI*2); xctx.fill();
-      const ux0=-p[0], uy0=0.0993-p[1], un=Math.hypot(ux0,uy0)||1, off=26+30*Math.abs(ux0/un), lx=px+ux0/un*off, ly=py+uy0/un*off;
+      const ux0=-p[0], uy0=-p[1], un=Math.hypot(ux0,uy0)||1, off=26+30*Math.abs(ux0/un), lx=px+ux0/un*off, ly=py+uy0/un*off;
       xctx.font='400 16px Jost, Futura, sans-serif'; xctx.fillText(PN[i],lx,ly-9);
       xctx.font='400 12px Jost, Futura, sans-serif'; xctx.fillText(Math.round(w[i]*100)+'%',lx,ly+10);
       xctx.font='500 22px Jost, Futura, sans-serif';
     });
     xctx.fillStyle=TC.ac; xctx.save(); xctx.globalAlpha=.12; xctx.beginPath(); xctx.arc(cx,cy,22,0,Math.PI*2); xctx.fill(); xctx.restore(); xctx.beginPath(); xctx.arc(cx,cy,6,0,Math.PI*2); xctx.fill();
   }
+  // Nearest point on a slightly inset pentagon: the entire red dot stays inside.
+  function clampXY(pos){
+    const K=xyCv.width/2-8;
+    const inset=1-(7/K)/(0.9*Math.cos(Math.PI/5));
+    const bounds=PP.map(p=>[p[0]*inset,p[1]*inset]);
+    const inside=bounds.every((a,i)=>{
+      const b=bounds[(i+1)%bounds.length];
+      return (b[0]-a[0])*(pos[1]-a[1])-(b[1]-a[1])*(pos[0]-a[0])>=-1e-12;
+    });
+    if(inside) return pos;
+    let best=[0,0],distance=Infinity;
+    bounds.forEach((a,i)=>{
+      const b=bounds[(i+1)%bounds.length], dx=b[0]-a[0],dy=b[1]-a[1];
+      const t=Math.max(0,Math.min(1,((pos[0]-a[0])*dx+(pos[1]-a[1])*dy)/(dx*dx+dy*dy)));
+      const q=[a[0]+t*dx,a[1]+t*dy],d=(pos[0]-q[0])**2+(pos[1]-q[1])**2;
+      if(d<distance){distance=d;best=q;}
+    });
+    return best;
+  }
   function setXY(e){
-    const r=xyCv.getBoundingClientRect(), cl=v=>Math.max(-1,Math.min(1,v));
-    const W=xyCv.width, K=W/2-8; xyPos=[cl((((e.clientX-r.left)/r.width)*W-W/2)/K), cl((((e.clientY-r.top)/r.height)*W-W/2)/K)];
+    const r=xyCv.getBoundingClientRect(), W=xyCv.width, K=W/2-8;
+    xyPos=clampXY([(((e.clientX-r.left)/r.width)*W-W/2)/K,(((e.clientY-r.top)/r.height)*W-W/2)/K]);
     drawXY(); pushParamsToWorklet();
   }
   xyCv.addEventListener('pointerdown',e=>{ xyCv.setPointerCapture(e.pointerId); setXY(e); });
@@ -586,8 +605,22 @@ audio{width:100%;margin-top:12px;height:36px}#filenameInput{width:100%}.dl{displ
   let savedTheme='panel'; try{ savedTheme=localStorage.getItem('mlTheme')||'panel'; }catch(e){}
   applyTheme('panel');
   const stageEl=document.querySelector('.wrap');
-  function fitStage(){ stageEl.style.transform='none'; }
-  addEventListener('resize',fitStage); fitStage();
+  let fitFrame=0;
+  function fitStage(){
+    const viewport=window.visualViewport;
+    const vw=viewport?viewport.width:innerWidth, vh=viewport?viewport.height:innerHeight;
+    const W=stageEl.offsetWidth,H=stageEl.offsetHeight,pad=12;
+    const k=Math.max(0.01,Math.min((vw-pad*2)/W,(vh-pad*2)/H,1.5));
+    const x=(viewport?viewport.offsetLeft:0)+(vw-W*k)/2;
+    const y=(viewport?viewport.offsetTop:0)+(vh-H*k)/2;
+    stageEl.style.transform='translate('+x+'px,'+y+'px) scale('+k+')';
+  }
+  function queueFit(){cancelAnimationFrame(fitFrame);fitFrame=requestAnimationFrame(fitStage);}
+  addEventListener('resize',queueFit);
+  new ResizeObserver(queueFit).observe(stageEl);
+  if(window.visualViewport){visualViewport.addEventListener('resize',queueFit);visualViewport.addEventListener('scroll',queueFit);}
+  if(document.fonts)document.fonts.ready.then(queueFit);
+  fitStage();
   const loopLenEl=document.getElementById('loopLen');
   const valLoopLen=document.getElementById('valLoopLen');
   function applyLoopLen(){
@@ -610,7 +643,7 @@ audio{width:100%;margin-top:12px;height:36px}#filenameInput{width:100%}.dl{displ
   syncLabels();
 
   function randomizeParams(){
-    xyPos=[(Math.random()*2-1)*0.8,(Math.random()*2-1)*0.8]; drawXY();
+    xyPos=clampXY([(Math.random()*2-1)*0.8,(Math.random()*2-1)*0.8]); drawXY();
     if(audioBuffer){
       const n=Math.max(1,Math.min(20,parseInt(anchorRandCountEl.value)||3));
       anchors=[];
