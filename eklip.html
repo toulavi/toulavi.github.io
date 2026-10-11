@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>8</title>
+<title>1</title>
 <style>
   :root{
     --bg:#0b0c0a; --bg-raised:#111310; --line:#242720;
@@ -60,6 +60,11 @@
   audio{width:100%;margin-top:6px;}
   a.dl{display:inline-block;margin-top:10px;font-size:12px;color:var(--phosphor);text-decoration:none;border-bottom:1px solid var(--phosphor-dim);padding-bottom:1px;}
   a.dl:hover{color:#93ffb2;}
+  .hint{font-size:11px;color:var(--ink-dim);line-height:1.7;margin:6px 0 0;}
+  #btnBrake{width:100%;padding:16px;touch-action:none;}
+  #btnBrake.held{background:var(--amber);border-color:var(--amber);color:var(--bg);}
+  input[type=range]{accent-color:var(--phosphor);}
+  body{margin:0;}
   footer{margin-top:14px;font-size:10.5px;color:var(--ink-dim);line-height:1.6;}
 </style>
 </head>
@@ -67,7 +72,7 @@
 <div class="wrap">
 
   <header>
-    <p class="tag">EKLIPSE / WEB</p>
+    <p class="tag">EKLIPSE / WRESTLE</p>
     <h1>32基のオシレーターが<span>互いの千鳥足</span>を乱し合うノイズ生成機</h1>
   </header>
 
@@ -76,7 +81,7 @@
       <span class="dot" id="liveDot"></span>
       <button class="primary" id="btnPlay">再生</button>
       <button id="btnStop" disabled>停止</button>
-      <button id="btnReseed" disabled>Reseed</button>
+      <button id="btnReseed" disabled hidden>一打</button>
       <span style="flex:1"></span>
       <span class="dot" id="recDot"></span>
       <button id="btnRecord" disabled>録音開始</button>
@@ -90,6 +95,23 @@
     </div>
   </section>
 
+  <section class="intervention">
+    <div class="row-head"><label>機械への介入</label><span class="val">WRESTLE / 01</span></div>
+    <canvas id="stateCanvas" width="600" height="100" style="width:100%;height:100px;display:block;margin:10px 0"></canvas>
+    <div class="row">
+      <div class="row-head"><label for="coupling">結合</label><span class="val" id="valCoupling">65%</span></div>
+      <input type="range" id="coupling" min="0" max="100" value="65">
+      <p class="hint">動きの干渉を強める。一か所の変化がほかへ波及する。</p>
+    </div>
+    <div class="row">
+      <div class="row-head"><label for="constraint">拘束</label><span class="val" id="valConstraint">20%</span></div>
+      <input type="range" id="constraint" min="0" max="100" value="20">
+      <p class="hint">音域を狭める。動く勢いは残り、密集したうなりに変わる。</p>
+    </div>
+    <button id="btnBrake" aria-pressed="false">制動 · HOLD / SPACE</button>
+    <p class="hint">押している間だけ内部の動きを減速。離すと続きから暴れ出す。</p>
+    <div class="statusline" id="machineState">内部状態を待機中</div>
+  </section>
   <section>
     <div class="row">
       <div class="row-head"><label>暴れ強度</label><span class="val" id="valChaos">45%</span></div>
@@ -131,7 +153,7 @@
       <input type="range" id="twist" min="0" max="100" value="35">
     </div>
     <div class="row">
-      <div class="row-head"><label>エンベロープ(Reseedのたびに発動。点をドラッグで編集)</label></div>
+      <div class="row-head"><label>エンベロープ(一打・シーケンサーで発動。点をドラッグで編集)</label></div>
       <canvas id="envCanvas" width="600" height="140" style="width:100%;height:140px;display:block;background:#0e0f0c;border:1px solid var(--line);border-radius:2px;cursor:pointer;touch-action:none;"></canvas>
       <div class="minmax" style="margin-top:8px;flex-wrap:wrap;">
         <input type="number" id="envAttack" value="5" min="0" max="20000" step="1"><span>ms A　</span>
@@ -142,7 +164,7 @@
       </div>
     </div>
     <div class="row">
-      <div class="row-head"><label>ステップシーケンサー(ステップごとにReseedを撃つ)</label></div>
+      <div class="row-head"><label>ステップシーケンサー(内部状態を保ったまま音を区切る)</label></div>
       <div style="margin-bottom:8px;">
         <button type="button" id="btnSeqOn">シーケンサー: OFF</button>
         <button type="button" id="btnSeqRandom">パターンをランダム化</button>
@@ -162,7 +184,7 @@
   </section>
 
   <footer>
-    Maurizio Giriの"eKlipse"(Max/MSPの実験パッチ)の仕組み——4つのランダムウォーク("drunk")が互いのステップ幅・可動域を書き換え合いながら32基のオシレーターバンクを駆動する構造——をWeb Audio(AudioWorklet)向けに再構成したもの。正確な配線の再現ではなく、構造を汲んだ再実装。パラメータはリアルタイムに反映されます。
+    Maurizio Giriの"eKlipse"(Max/MSPの実験パッチ)の仕組み——4つのランダムウォーク("drunk")が互いのステップ幅・可動域を書き換え合いながら32基のオシレーターバンクを駆動する構造——をWeb Audio(AudioWorklet)向けに再構成したもの。正確な配線の再現ではなく、構造を汲んだ再実装。試作01：結合・拘束・制動で内部状態に介入。連続運転が標準で、シーケンサーは状態を変えずに音量のエンベロープだけを駆動します。制動は音量ではなく動きの速度を抑えます。
   </footer>
 
 </div>
@@ -180,6 +202,38 @@
   const player=document.getElementById('player');
   const dlLink=document.getElementById('dlLink');
 
+  const couplingEl=document.getElementById('coupling');
+  const constraintEl=document.getElementById('constraint');
+  const btnBrake=document.getElementById('btnBrake');
+  const stateCanvas=document.getElementById('stateCanvas');
+  const stateCtx=stateCanvas.getContext('2d');
+  let brakePointer=false, brakeKey=false;
+  function setBrake(){
+    const active=brakePointer||brakeKey;
+    btnBrake.classList.toggle('held',active);
+    btnBrake.setAttribute('aria-pressed',String(active));
+    pushParams();
+  }
+  btnBrake.addEventListener('pointerdown',e=>{e.preventDefault();brakePointer=true;btnBrake.setPointerCapture(e.pointerId);setBrake();});
+  ['pointerup','pointercancel','lostpointercapture'].forEach(type=>btnBrake.addEventListener(type,()=>{brakePointer=false;setBrake();}));
+  btnBrake.addEventListener('keydown',e=>{if(e.code==='Enter'||e.code==='Space'){e.preventDefault();brakeKey=true;setBrake();}});
+  btnBrake.addEventListener('keyup',e=>{if(e.code==='Enter'||e.code==='Space'){brakeKey=false;setBrake();}});
+  window.addEventListener('keydown',e=>{
+    if(e.code!=='Space'||/INPUT|SELECT|TEXTAREA|BUTTON/.test(e.target.tagName)||e.target.isContentEditable)return;
+    e.preventDefault();brakeKey=true;setBrake();
+  });
+  window.addEventListener('keyup',e=>{if(e.code==='Space'){brakeKey=false;setBrake();}});
+  window.addEventListener('blur',()=>{brakeKey=brakePointer=false;setBrake();});
+  function drawState(values){
+    stateCtx.clearRect(0,0,600,100);
+    values.forEach((v,i)=>{
+      const x=10+i*150;
+      stateCtx.fillStyle='#242720';stateCtx.fillRect(x,12,130,56);
+      stateCtx.fillStyle=(brakePointer||brakeKey)?'#e0a94a':'#7cff9e';stateCtx.fillRect(x,68-v*56,130,v*56);
+      stateCtx.fillStyle='#7a8073';stateCtx.font='11px monospace';stateCtx.fillText(['D1 / 活動','D2 / 開閉','D3 / 音域','D4 / 強度'][i],x,90);
+    });
+    document.getElementById('machineState').textContent=(brakePointer||brakeKey)?'制動中 · 内部の速度を抑制':'内部状態を保持して運転中';
+  }
   const chaosEl=document.getElementById('chaos');
   const tempoEl=document.getElementById('tempo');
   const tempoModeMsEl=document.getElementById('tempoModeMs');
@@ -420,21 +474,24 @@
   registerEl.addEventListener('change', ()=>{ pushParams(); });
 
   function syncLabels(){
+    document.getElementById('valCoupling').textContent=couplingEl.value+'%';
+    document.getElementById('valConstraint').textContent=constraintEl.value+'%';
     valChaos.textContent=chaosEl.value+'%';
     valTwist.textContent=twistEl.value+'%';
   }
   function currentParams(){
     return {
+      coupling: +couplingEl.value, constraint: +constraintEl.value, brake: (brakePointer||brakeKey)?1:0,
       chaos: parseFloat(chaosEl.value),
       tempoMs: computeTempoMs(),
       registerHz: parseFloat(registerEl.value),
       density: parseInt(densityEl.value),
       twist: parseFloat(twistEl.value),
-      envAttackMs: parseFloat(envAttackEl.value)||5,
-      envDecayMs: parseFloat(envDecayEl.value)||80,
-      envSustainLevel: parseFloat(envSustainLevelEl.value)||60,
-      envSustainHoldMs: parseFloat(envSustainHoldEl.value)||150,
-      envReleaseMs: parseFloat(envReleaseEl.value)||400,
+      envAttackMs: (Number.isFinite(parseFloat(envAttackEl.value))?parseFloat(envAttackEl.value):5),
+      envDecayMs: (Number.isFinite(parseFloat(envDecayEl.value))?parseFloat(envDecayEl.value):80),
+      envSustainLevel: (Number.isFinite(parseFloat(envSustainLevelEl.value))?parseFloat(envSustainLevelEl.value):60),
+      envSustainHoldMs: (Number.isFinite(parseFloat(envSustainHoldEl.value))?parseFloat(envSustainHoldEl.value):150),
+      envReleaseMs: (Number.isFinite(parseFloat(envReleaseEl.value))?parseFloat(envReleaseEl.value):400),
       seqOn: seqOn?1:0,
       seqBpm: parseFloat(seqBpmEl.value)||120,
       seqStepFrac: parseFloat(seqStepLenEl.value)||0.25,
@@ -444,7 +501,7 @@
   function pushParams(){
     if(workletNode) workletNode.port.postMessage({type:'params', params: currentParams()});
   }
-  [chaosEl,tempoEl,registerEl,densityEl,twistEl].forEach(el=>{
+  [couplingEl,constraintEl,chaosEl,tempoEl,registerEl,densityEl,twistEl].forEach(el=>{
     el.addEventListener('input',()=>{ syncLabels(); pushParams(); });
   });
   syncLabels();
@@ -492,11 +549,15 @@
 class EklipseProcessor extends AudioWorkletProcessor {
   constructor(){
     super();
-    this.params={chaos:45,tempoMs:40,registerHz:220,density:12,twist:35,envAttackMs:5,envDecayMs:80,envSustainLevel:60,envSustainHoldMs:150,envReleaseMs:400,seqOn:0,seqBpm:120,seqStepFrac:0.25,seqPattern:new Array(16).fill(0)};
+    this.params={coupling:65,constraint:20,brake:0,chaos:45,tempoMs:40,registerHz:220,density:12,twist:35,envAttackMs:5,envDecayMs:80,envSustainLevel:60,envSustainHoldMs:150,envReleaseMs:400,seqOn:0,seqBpm:120,seqStepFrac:0.25,seqPattern:new Array(16).fill(0)};
     this.N=32;
     this.freq=new Float32Array(this.N);
     this.amp=new Float32Array(this.N);
     this.phase=new Float32Array(this.N);
+    this.actualFreq=new Float32Array(this.N);
+    this.actualAmp=new Float32Array(this.N);
+    this.targetFreq=new Float32Array(this.N);
+    this.brakeAmount=0;this.constraintAmount=0.2;this.telemetryCounter=0;this.outputGate=1;
     this.d1={v:0.3}; this.d2={v:0.3}; this.d3={v:0.5}; this.d4={v:0.3};
     this.gateOpen=true;
     this.samplesUntilTick=0;
@@ -531,7 +592,7 @@ class EklipseProcessor extends AudioWorkletProcessor {
           this.seqCounter=Infinity;
         }
       }
-      else if(d.type==='reseed') this.reseed();
+      else if(d.type==='reseed') this.strike();
     };
   }
   computeSeqStepSamples(){
@@ -549,12 +610,16 @@ class EklipseProcessor extends AudioWorkletProcessor {
     this.d1.v=Math.random(); this.d2.v=Math.random(); this.d3.v=Math.random(); this.d4.v=Math.random();
     this.lastD3=this.d3.v; this.lastD4=this.d4.v;
     this.samplesUntilTick=0;
+    this.actualFreq.set(this.freq);
+    this.strike();
+  }
+  strike(){
     this.envPhase='attack';
-    const attackSamples=Math.max(1, Math.round((this.params.envAttackMs||5)/1000*sampleRate));
+    const attackSamples=Math.max(1, Math.round((this.params.envAttackMs??5)/1000*sampleRate));
     this.envAttackStep=1/attackSamples;
   }
   walk(state, step, lo, hi){
-    let nv=state.v+(Math.random()*2-1)*step;
+    let nv=state.v+(Math.random()*2-1)*step*(1-this.brakeAmount*0.98);
     if(nv<lo) nv=lo+(lo-nv);
     if(nv>hi) nv=hi-(nv-hi);
     nv=Math.max(lo,Math.min(hi,nv));
@@ -564,12 +629,14 @@ class EklipseProcessor extends AudioWorkletProcessor {
   tick(){
     const p=this.params;
     const chaosAmt=(p.chaos||0)/100;
+    const c=Math.max(0,Math.min(1,p.coupling/100))*1.5;
+    const influence=(v)=>Math.max(0,Math.min(1,0.5+(v-0.5)*c));
 
     const stepD1=0.05+chaosAmt*0.5;
     const d1v=this.walk(this.d1, stepD1, 0, 1);
 
-    const rangeD2=0.15+this.d3.v*0.6*(0.3+chaosAmt*1.4);
-    const stepD2=(0.03+d1v*0.4)*(0.2+chaosAmt*1.6);
+    const rangeD2=0.15+influence(this.d3.v)*0.6*(0.3+chaosAmt*1.4);
+    const stepD2=(0.03+influence(d1v)*0.4)*(0.2+chaosAmt*1.6);
     const d2v=this.walk(this.d2, stepD2, 0, Math.min(1,rangeD2));
 
     this.gateOpen = d2v > (0.15+chaosAmt*0.1);
@@ -580,14 +647,14 @@ class EklipseProcessor extends AudioWorkletProcessor {
     }
     const d3v=this.d3.v;
 
-    const rangeD4=0.2+d3v*0.7;
-    const stepD4=(0.03+d2v*0.5)*(0.2+chaosAmt*1.6);
+    const rangeD4=0.2+influence(d3v)*0.7;
+    const stepD4=(0.03+influence(d2v)*0.5)*(0.2+chaosAmt*1.6);
     const d4v=this.walk(this.d4, stepD4, 0, Math.min(1,rangeD4));
 
     const maxOsc=Math.max(1, Math.min(this.N, Math.round(p.density||12)));
     const numToUpdate=Math.max(1, Math.round(d1v*maxOsc));
     const reg=p.registerHz||220;
-    const ampMod=d4v*(0.4+d3v*0.6)*(0.4+d2v*0.6);
+    const ampMod=d4v*(0.4+influence(d3v)*0.6)*(0.4+influence(d2v)*0.6);
 
     for(let k=0;k<numToUpdate;k++){
       const i=Math.floor(Math.random()*this.N);
@@ -599,7 +666,7 @@ class EklipseProcessor extends AudioWorkletProcessor {
 
     const baseTicks=Math.max(1, Math.round((p.tempoMs||40)/1000*sampleRate));
     const rateMod=0.25+d2v*1.8;
-    this.samplesUntilTick=Math.max(1, Math.round(baseTicks*rateMod));
+    this.samplesUntilTick=Math.max(1, Math.round(baseTicks*rateMod*(1+this.brakeAmount*12)));
 
     this.lastD3=d3v;
     this.lastD4=d4v;
@@ -608,30 +675,37 @@ class EklipseProcessor extends AudioWorkletProcessor {
     const output=outputs[0];
     const blockSize=output[0] ? output[0].length : 128;
     const twist=(this.params.twist||0)/100;
+    const reg=this.params.registerHz||220;
+    const width=1-this.constraintAmount*0.975;
+    for(let n=0;n<this.N;n++) this.targetFreq[n]=Math.min(sampleRate*0.45,Math.max(15,reg*Math.pow(2,Math.log2(Math.max(15,this.freq[n])/reg)*width)));
     for(let i=0;i<blockSize;i++){
       if(this.params.seqOn){
         this.seqCounter--;
         if(this.seqCounter<=0){
           const pattern=this.params.seqPattern||[];
           const len=pattern.length||16;
-          if(pattern[this.seqStepIndex]) this.reseed();
+          if(pattern[this.seqStepIndex]) this.strike();
           try{ this.port.postMessage({type:'step', index:this.seqStepIndex}); }catch(e){}
           this.seqStepIndex=(this.seqStepIndex+1)%len;
           this.seqCounter=this.seqStepSamples;
         }
       }
+      this.brakeAmount+=(this.params.brake-this.brakeAmount)*0.001;
+      this.constraintAmount+=(this.params.constraint/100-this.constraintAmount)*0.001;
       if(this.samplesUntilTick<=0) this.tick();
       this.samplesUntilTick--;
 
       let raw=0;
       for(let n=0;n<this.N;n++){
-        this.phase[n]+=this.freq[n]/sampleRate;
+        this.actualFreq[n]+=(this.targetFreq[n]-this.actualFreq[n])*0.008;
+        this.actualAmp[n]+=(this.amp[n]-this.actualAmp[n])*0.008;
+        this.phase[n]+=this.actualFreq[n]/sampleRate;
         if(this.phase[n]>=1) this.phase[n]-=Math.floor(this.phase[n]);
-        raw+=Math.sin(2*Math.PI*this.phase[n])*this.amp[n];
+        raw+=Math.sin(2*Math.PI*this.phase[n])*this.actualAmp[n];
       }
       const right=Math.tanh(raw*1.3);
 
-      const leftFreq=(this.params.registerHz||220)*0.5*Math.pow(2,(this.lastD3-0.5)*2);
+      const leftFreq=(this.params.registerHz||220)*0.5*Math.pow(2,(this.lastD3-0.5)*2*(1-this.constraintAmount*0.975));
       this.leftPhase+=leftFreq/sampleRate;
       if(this.leftPhase>=1) this.leftPhase-=Math.floor(this.leftPhase);
       const modAmount=raw*twist*1.8;
@@ -643,8 +717,8 @@ class EklipseProcessor extends AudioWorkletProcessor {
         if(this.envValue>=1){
           this.envValue=1;
           this.envPhase='decay';
-          const sustainLevel=Math.max(0,Math.min(1,(this.params.envSustainLevel||60)/100));
-          const decaySamples=Math.max(1, Math.round((this.params.envDecayMs||80)/1000*sampleRate));
+          const sustainLevel=Math.max(0,Math.min(1,(this.params.envSustainLevel??60)/100));
+          const decaySamples=Math.max(1, Math.round((this.params.envDecayMs??80)/1000*sampleRate));
           this.envDecayStep=(1-sustainLevel)/decaySamples;
           this.envSustainLevel=sustainLevel;
         }
@@ -653,13 +727,13 @@ class EklipseProcessor extends AudioWorkletProcessor {
         if(this.envValue<=this.envSustainLevel){
           this.envValue=this.envSustainLevel;
           this.envPhase='sustain';
-          this.envSustainCounter=Math.max(1, Math.round((this.params.envSustainHoldMs||150)/1000*sampleRate));
+          this.envSustainCounter=Math.max(1, Math.round((this.params.envSustainHoldMs??150)/1000*sampleRate));
         }
       } else if(this.envPhase==='sustain'){
         this.envSustainCounter--;
         if(this.envSustainCounter<=0){
           this.envPhase='release';
-          const releaseSamples=Math.max(1, Math.round((this.params.envReleaseMs||400)/1000*sampleRate));
+          const releaseSamples=Math.max(1, Math.round((this.params.envReleaseMs??400)/1000*sampleRate));
           this.envReleaseStep=this.envValue/releaseSamples;
         }
       } else if(this.envPhase==='release'){
@@ -667,8 +741,15 @@ class EklipseProcessor extends AudioWorkletProcessor {
         if(this.envValue<=0){ this.envValue=0; this.envPhase='idle'; }
       }
 
-      if(output[0]) output[0][i]=left*this.envValue;
-      if(output[1]) output[1][i]=right*this.envValue;
+      const targetGate=this.params.seqOn?this.envValue:1;
+      this.outputGate+=(targetGate-this.outputGate)*0.01;
+      if(output[0]) output[0][i]=left*this.outputGate*0.7;
+      if(output[1]) output[1][i]=right*this.outputGate*0.7;
+    }
+    this.telemetryCounter+=blockSize;
+    if(this.telemetryCounter>=sampleRate/20){
+      this.telemetryCounter=0;
+      this.port.postMessage({type:'state',values:[this.d1.v,this.d2.v,this.d3.v,this.d4.v]});
     }
     return true;
   }
@@ -692,10 +773,12 @@ registerProcessor('eklipse-processor', EklipseProcessor);
       });
       workletNode.port.onmessage=(e)=>{
         const d=e.data;
+        if(d.type==='state') drawState(d.values);
         if(d.type==='step'){
           seqButtons.forEach((b,i)=> b.classList.toggle('playhead', i===d.index));
         }
       };
+      URL.revokeObjectURL(url);
       workletReady=true;
       pushParams();
     }catch(err){
@@ -706,6 +789,8 @@ registerProcessor('eklipse-processor', EklipseProcessor);
 
   btnPlay.addEventListener('click', async ()=>{
     try{
+      if(isPlaying)return;
+      btnPlay.disabled=true;
       await ensureWorklet();
       await audioCtx.resume();
       workletNode.connect(audioCtx.destination);
@@ -713,11 +798,13 @@ registerProcessor('eklipse-processor', EklipseProcessor);
       liveDot.classList.add('live');
       btnPlay.disabled=true; btnStop.disabled=false; btnReseed.disabled=false; btnRecord.disabled=false;
       statusEl.textContent='再生中。パラメータを動かすとすぐ反映されます。';
-    }catch(err){ /* already reported */ }
+    }catch(err){ btnPlay.disabled=false; }
   });
 
   btnStop.addEventListener('click', ()=>{
+    brakeKey=brakePointer=false;setBrake();
     if(workletNode) workletNode.disconnect();
+    if(audioCtx) audioCtx.suspend();
     isPlaying=false;
     liveDot.classList.remove('live');
     btnPlay.disabled=false; btnStop.disabled=true; btnReseed.disabled=true; btnRecord.disabled=true;
@@ -727,7 +814,7 @@ registerProcessor('eklipse-processor', EklipseProcessor);
 
   btnReseed.addEventListener('click', ()=>{
     if(workletNode) workletNode.port.postMessage({type:'reseed'});
-    statusEl.textContent='状態をランダムに再始動しました。';
+    statusEl.textContent='内部状態を保ったまま一打。連続運転中はシーケンサーをONにすると音を区切れます。';
   });
 
   btnRecord.addEventListener('click', ()=>{
@@ -741,7 +828,7 @@ registerProcessor('eklipse-processor', EklipseProcessor);
       mediaRecorder.ondataavailable=(e)=>{ if(e.data.size>0) thisChunks.push(e.data); };
       mediaRecorder.onstop=async ()=>{
         statusEl.textContent='WAVに変換中…';
-        const webmBlob=new Blob(thisChunks, {type:'audio/webm'});
+        const webmBlob=new Blob(thisChunks, {type:mediaRecorder.mimeType||thisChunks[0]?.type||'audio/webm'});
         try{
           const arrBuf=await webmBlob.arrayBuffer();
           const decoded=await decodeAudioDataSafely(arrBuf);
@@ -751,7 +838,7 @@ registerProcessor('eklipse-processor', EklipseProcessor);
           lastRecUrl=url;
           player.src=url;
           dlLink.href=url;
-          dlLink.download=sanitizeFilename('eklipse-web');
+          dlLink.download=sanitizeFilename('eklipse-wrestle');
           recOutput.style.display='block';
           statusEl.textContent='録音完了(WAV変換済み)。下で試聴・ダウンロードできます。';
         }catch(err){
@@ -760,9 +847,9 @@ registerProcessor('eklipse-processor', EklipseProcessor);
           lastRecUrl=url;
           player.src=url;
           dlLink.href=url;
-          dlLink.download='eklipse-web.webm';
+          dlLink.download='eklipse-wrestle.'+(webmBlob.type.includes('mp4')?'m4a':'webm');
           recOutput.style.display='block';
-          statusEl.textContent='WAV変換に失敗したためwebmのまま渡します: '+err.message;
+          statusEl.textContent='WAV変換に失敗したため元の録音形式で渡します: '+err.message;
         }
         recDot.classList.remove('rec');
         btnRecord.textContent='録音開始';
